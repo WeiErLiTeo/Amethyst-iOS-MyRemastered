@@ -34,11 +34,34 @@
     [self refreshList];
 }
 
+- (UILabel *)makeBackgroundLabelWithText:(NSString *)text {
+    UILabel *lbl = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, self.tableView.bounds.size.width, 100)];
+    lbl.text = text;
+    lbl.textAlignment = NSTextAlignmentCenter;
+    lbl.textColor = [UIColor systemGrayColor];
+    lbl.numberOfLines = 2;
+    return lbl;
+}
+
 - (void)refreshList {
     __weak typeof(self) wself = self;
+    // First check whether an actual mods folder exists for the selected profile
+    NSString *modsFolder = [[ModService sharedService] existingModsFolderForProfile:self.profileName];
+    if (!modsFolder) {
+        self.mods = @[];
+        self.tableView.backgroundView = [self makeBackgroundLabelWithText:@"未找到Mod目录，请确保已安装Mod加载器"];
+        [self.tableView reloadData];
+        return;
+    }
+
     [[ModService sharedService] scanModsForProfile:self.profileName completion:^(NSArray<ModItem *> *mods) {
         __strong typeof(wself) sself = wself;
         sself.mods = mods;
+        if (mods.count == 0) {
+            sself.tableView.backgroundView = [sself makeBackgroundLabelWithText:@"未找到任何Mod，请刷新重试"];
+        } else {
+            sself.tableView.backgroundView = nil;
+        }
         [sself.tableView reloadData];
         for (ModItem *m in mods) {
             [[ModService sharedService] fetchMetadataForMod:m completion:^(ModItem *item, NSError * _Nullable error) {

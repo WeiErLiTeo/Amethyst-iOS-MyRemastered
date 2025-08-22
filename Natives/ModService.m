@@ -22,31 +22,68 @@
 
 #pragma mark - Paths
 
-// NOTE: adjust this to your actual launcher profile/mods layout if different.
+// Return a default mods path for a profile (does NOT check existence)
 - (NSString *)modsPathForProfile:(NSString *)profileName {
+    NSString *profile = profileName.length ? profileName : @"default";
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *documents = paths.firstObject;
-    NSString *modsPath = [documents stringByAppendingPathComponent:[NSString stringWithFormat:@"game_data/%@/mods", profileName ?: @"default"]];
-    if (![[NSFileManager defaultManager] fileExistsAtPath:modsPath]) {
-        [[NSFileManager defaultManager] createDirectoryAtPath:modsPath withIntermediateDirectories:YES attributes:nil error:nil];
+    return [documents stringByAppendingPathComponent:[NSString stringWithFormat:@"instances/%@/mods", profile]];
+}
+
+// Return first existing mods folder candidate, otherwise nil.
+- (nullable NSString *)existingModsFolderForProfile:(NSString *)profileName {
+    NSString *profile = profileName.length ? profileName : @"default";
+    NSFileManager *fm = NSFileManager.defaultManager;
+
+    // Candidate 1: POJAV_HOME/instances/<profile>/mods
+    const char *pojHomeC = getenv("POJAV_HOME");
+    if (pojHomeC) {
+        NSString *pojHome = [NSString stringWithUTF8String:pojHomeC];
+        NSString *cand1 = [pojHome stringByAppendingPathComponent:[NSString stringWithFormat:@"instances/%@/mods", profile]];
+        BOOL isDir = NO;
+        if ([fm fileExistsAtPath:cand1 isDirectory:&isDir] && isDir) return cand1;
     }
-    return modsPath;
+
+    // Candidate 2: Documents/instances/<profile>/mods
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *documents = paths.firstObject;
+    NSString *cand2 = [documents stringByAppendingPathComponent:[NSString stringWithFormat:@"instances/%@/mods", profile]];
+    BOOL isDir2 = NO;
+    if ([fm fileExistsAtPath:cand2 isDirectory:&isDir2] && isDir2) return cand2;
+
+    // Candidate 3: POJAV_GAME_DIR/mods (POJAV_GAME_DIR may be a symlink to the selected instance)
+    const char *gameDirC = getenv("POJAV_GAME_DIR");
+    if (gameDirC) {
+        NSString *gameDir = [NSString stringWithUTF8String:gameDirC];
+        NSString *cand3 = [gameDir stringByAppendingPathComponent:@"mods"];
+        BOOL isDir3 = NO;
+        if ([fm fileExistsAtPath:cand3 isDirectory:&isDir3] && isDir3) return cand3;
+    }
+
+    // Fallback: older layout Documents/game_data/<profile>/mods
+    NSString *cand4 = [documents stringByAppendingPathComponent:[NSString stringWithFormat:@"game_data/%@/mods", profile]];
+    BOOL isDir4 = NO;
+    if ([fm fileExistsAtPath:cand4 isDirectory:&isDir4] && isDir4) return cand4;
+
+    return nil;
 }
 
 #pragma mark - Scan
 
 - (void)scanModsForProfile:(NSString *)profileName completion:(ModListHandler)completion {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        NSString *modsFolder = [self modsPathForProfile:profileName];
-        NSError *err = nil;
-        NSArray *contents = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:modsFolder error:&err];
+        NSString *modsFolder = [self existingModsFolderForProfile:profileName];
         NSMutableArray<ModItem *> *items = [NSMutableArray array];
-        if (contents) {
-            for (NSString *f in contents) {
-                if ([f hasSuffix:@".jar"] || [f hasSuffix:@".jar.disabled"] || [f hasSuffix:@".disabled"]) {
-                    NSString *full = [modsFolder stringByAppendingPathComponent:f];
-                    ModItem *m = [[ModItem alloc] initWithFilePath:full];
-                    [items addObject:m];
+        if (modsFolder) {
+            NSError *err = nil;
+            NSArray *contents = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:modsFolder error:&err];
+            if (contents) {
+                for (NSString *f in contents) {
+                    if ([f hasSuffix:@".jar"] || [f hasSuffix:@".jar.disabled"] || [f hasSuffix:@".disabled"]) {
+                        NSString *full = [modsFolder stringByAppendingPathComponent:f];
+                        ModItem *m = [[ModItem alloc] initWithFilePath:full];
+                        [items addObject:m];
+                    }
                 }
             }
         }

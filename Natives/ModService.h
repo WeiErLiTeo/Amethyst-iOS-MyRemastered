@@ -23,6 +23,9 @@ typedef void(^ModMetadataHandler)(ModItem *item, NSError * _Nullable error);
 - (BOOL)toggleEnableForMod:(ModItem *)mod error:(NSError **)error;
 - (BOOL)deleteMod:(ModItem *)mod error:(NSError **)error;
 
+// Return an existing mods folder path for the given profile if found, otherwise nil.
+- (nullable NSString *)existingModsFolderForProfile:(NSString *)profileName;
+
 @end
 
 NS_ASSUME_NONNULL_END
