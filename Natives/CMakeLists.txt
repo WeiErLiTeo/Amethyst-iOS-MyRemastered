@@ -178,10 +178,10 @@ add_executable(AngelAuraAmethyst
   ios_uikit_bridge.m
   utils.m
 
-  ModsManager/ModItem.m
-  ModsManager/ModService.m
-  ModsManager/ModTableViewCell.m
-  ModsManager/ModsManagerViewController.m
+  ModItem.m
+  ModService.m
+  ModTableViewCell.m
+  ModsManagerViewController.m
 )
 
 if("${CMAKE_HOST_SYSTEM_NAME}" MATCHES "Linux|^GNU$|Android")
