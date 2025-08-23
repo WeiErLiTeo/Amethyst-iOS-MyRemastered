@@ -7,6 +7,7 @@
 
 #import "ModTableViewCell.h"
 #import "UIKit+AFNetworking.h"
+#import "ModItem.h"
 
 @interface ModTableViewCell ()
 @property (nonatomic, strong) UIImageView *modIconView;
@@ -79,16 +80,29 @@
     self.currentMod = nil;
 }
 
+static UIImage *resizeImageToSize(UIImage *image, CGSize size) {
+    if (!image) return nil;
+    UIGraphicsBeginImageContextWithOptions(size, NO, 0.0);
+    [image drawInRect:CGRectMake(0, 0, size.width, size.height)];
+    UIImage *resized = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return resized ?: image;
+}
+
 - (void)configureWithMod:(ModItem *)mod {
     self.currentMod = mod;
     self.titleLabel.text = mod.displayName ?: [mod basename];
     self.descLabel.text = mod.modDescription ?: mod.fileName;
 
-    UIImage *placeholder = [[UIImage imageNamed:@"DefaultModIcon"] _imageWithSize:CGSizeMake(56, 56)];
+    UIImage *placeholder = [UIImage imageNamed:@"DefaultModIcon"];
+    if (placeholder) {
+        placeholder = resizeImageToSize(placeholder, CGSizeMake(56, 56));
+    }
+
     if (mod.iconURL.length) {
+        // AFNetworking category will set image asynchronously and keep placeholder meanwhile
         [self.modIconView setImageWithURL:[NSURL URLWithString:mod.iconURL] placeholderImage:placeholder];
     } else {
-        // fallback to file-based icon if any (not implemented here), otherwise placeholder
         self.modIconView.image = placeholder;
     }
 
