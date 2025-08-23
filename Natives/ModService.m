@@ -23,7 +23,7 @@
     return s;
 }
 
-#pragma mark - Helpers (sha, icon cache)
+#pragma mark - Paths & helpers
 
 - (NSString *)sha1ForFileAtPath:(NSString *)path {
     NSData *d = [NSData dataWithContentsOfFile:path];
@@ -54,7 +54,7 @@
     return [folder stringByAppendingPathComponent:hex];
 }
 
-#pragma mark - Jar extraction helper (PNG from jar)
+#pragma mark - Jar extraction helper (best-effort)
 
 - (BOOL)extractPNGFromJar:(NSString *)jarPath internalPath:(NSString *)internalPath destPath:(NSString *)destPath {
     if (!jarPath || !internalPath || !destPath) return NO;
@@ -82,17 +82,16 @@
     }
     if (idx == NSNotFound) return NO;
 
+    // Try to find IEND
     const unsigned char iendSig[4] = {0x49, 0x45, 0x4E, 0x44};
     NSUInteger endIdx = NSNotFound;
     for (NSUInteger i = idx; i + 12 < d.length; i++) {
         if (bytes[i] == iendSig[0] && bytes[i+1] == iendSig[1] && bytes[i+2] == iendSig[2] && bytes[i+3] == iendSig[3]) {
-            // include end of IEND chunk + CRC (12 bytes total after chunk start is not exact but best-effort)
-            endIdx = i + 8; // try to include reasonable tail
+            endIdx = i + 8; // best-effort include tail
             break;
         }
     }
     if (endIdx == NSNotFound || endIdx <= idx) {
-        // fallback: take to EOF
         endIdx = d.length;
     }
 
@@ -105,41 +104,141 @@
     return ok;
 }
 
-#pragma mark - TOML parsing (basic)
+#pragma mark - existingModsFolderForProfile (robust search)
 
-/*
-  Very small TOML extractor: finds the first [[mods]] block and extracts keys by regex:
-    displayName = "..."
-    version = "..."
-    description = """...""" or '...' or "..."
-    logoFile = "..."
-    displayURL = "..."
-    authors = "..." or authors = ["a","b"]
-  This is not a full TOML parser; for robust behavior prefer to read mods.toml from jar via a zip library and parse with a TOML parser.
-*/
+- (nullable NSString *)existingModsFolderForProfile:(NSString *)profileName {
+    NSString *profile = profileName.length ? profileName : @"default";
+    NSFileManager *fm = NSFileManager.defaultManager;
+
+    // Try PLProfiles.gameDir first if available
+    @try {
+        NSDictionary *profiles = PLProfiles.current.profiles;
+        NSDictionary *prof = profiles[profile];
+        if ([prof isKindOfClass:[NSDictionary class]]) {
+            NSString *gameDir = prof[@"gameDir"];
+            if ([gameDir isKindOfClass:[NSString class]] && gameDir.length > 0) {
+                if ([gameDir hasPrefix:@"./"]) {
+                    const char *gameDirC = getenv("POJAV_GAME_DIR");
+                    if (gameDirC) {
+                        NSString *pojGameDir = [NSString stringWithUTF8String:gameDirC];
+                        NSString *rel = [gameDir substringFromIndex:2];
+                        NSString *cand = [pojGameDir stringByAppendingPathComponent:rel];
+                        NSString *candMods = [cand stringByAppendingPathComponent:@"mods"];
+                        BOOL isDir = NO;
+                        if ([fm fileExistsAtPath:candMods isDirectory:&isDir] && isDir) return candMods;
+                        if ([fm fileExistsAtPath:cand isDirectory:&isDir] && isDir) {
+                            NSString *cand2 = [cand stringByAppendingPathComponent:@"mods"];
+                            if ([fm fileExistsAtPath:cand2 isDirectory:&isDir] && isDir) return cand2;
+                        }
+                    }
+                } else if ([gameDir hasPrefix:@"/"]) {
+                    NSString *candMods = [gameDir stringByAppendingPathComponent:@"mods"];
+                    BOOL isDir = NO;
+                    if ([fm fileExistsAtPath:candMods isDirectory:&isDir] && isDir) return candMods;
+                    if ([fm fileExistsAtPath:gameDir isDirectory:&isDir] && isDir) {
+                        NSString *cand2 = [gameDir stringByAppendingPathComponent:@"mods"];
+                        if ([fm fileExistsAtPath:cand2 isDirectory:&isDir] && isDir) return cand2;
+                    }
+                } else {
+                    const char *pojHomeC = getenv("POJAV_HOME");
+                    if (pojHomeC) {
+                        NSString *pojHome = [NSString stringWithUTF8String:pojHomeC];
+                        NSString *cand1 = [pojHome stringByAppendingPathComponent:[NSString stringWithFormat:@"instances/%@/mods", gameDir]];
+                        BOOL isDir = NO;
+                        if ([fm fileExistsAtPath:cand1 isDirectory:&isDir] && isDir) return cand1;
+                    }
+                    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+                    NSString *documents = paths.firstObject;
+                    NSString *cand2 = [documents stringByAppendingPathComponent:[NSString stringWithFormat:@"instances/%@/mods", gameDir]];
+                    BOOL isDir2 = NO;
+                    if ([fm fileExistsAtPath:cand2 isDirectory:&isDir2] && isDir2) return cand2;
+                }
+            }
+        }
+    } @catch (NSException *ex) {
+        // ignore
+    }
+
+    // POJAV_HOME instances/<profile>/mods
+    const char *pojHomeC = getenv("POJAV_HOME");
+    if (pojHomeC) {
+        NSString *pojHome = [NSString stringWithUTF8String:pojHomeC];
+        NSString *cand1 = [pojHome stringByAppendingPathComponent:[NSString stringWithFormat:@"instances/%@/mods", profile]];
+        BOOL isDir = NO;
+        if ([fm fileExistsAtPath:cand1 isDirectory:&isDir] && isDir) return cand1;
+    }
+
+    // Documents instances/<profile>/mods
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *documents = paths.firstObject;
+    NSString *cand2 = [documents stringByAppendingPathComponent:[NSString stringWithFormat:@"instances/%@/mods", profile]];
+    BOOL isDir2 = NO;
+    if ([fm fileExistsAtPath:cand2 isDirectory:&isDir2] && isDir2) return cand2;
+
+    // POJAV_GAME_DIR/mods
+    const char *gameDirC = getenv("POJAV_GAME_DIR");
+    if (gameDirC) {
+        NSString *gameDir = [NSString stringWithUTF8String:gameDirC];
+        NSString *cand3 = [gameDir stringByAppendingPathComponent:@"mods"];
+        BOOL isDir3 = NO;
+        if ([fm fileExistsAtPath:cand3 isDirectory:&isDir3] && isDir3) return cand3;
+    }
+
+    // older Documents/game_data/<profile>/mods
+    NSString *cand4 = [documents stringByAppendingPathComponent:[NSString stringWithFormat:@"game_data/%@/mods", profile]];
+    BOOL isDir4 = NO;
+    if ([fm fileExistsAtPath:cand4 isDirectory:&isDir4] && isDir4) return cand4;
+
+    return nil;
+}
+
+#pragma mark - Scan
+
+- (void)scanModsForProfile:(NSString *)profileName completion:(ModListHandler)completion {
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSString *modsFolder = [self existingModsFolderForProfile:profileName];
+        NSMutableArray<ModItem *> *items = [NSMutableArray array];
+        if (modsFolder) {
+            NSError *err = nil;
+            NSArray *contents = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:modsFolder error:&err];
+            if (contents) {
+                for (NSString *f in contents) {
+                    if ([f hasSuffix:@".jar"] || [f hasSuffix:@".jar.disabled"] || [f hasSuffix:@".disabled"]) {
+                        NSString *full = [modsFolder stringByAppendingPathComponent:f];
+                        ModItem *m = [[ModItem alloc] initWithFilePath:full];
+                        [items addObject:m];
+                    }
+                }
+            }
+        }
+        [items sortUsingComparator:^NSComparisonResult(ModItem *a, ModItem *b) {
+            return [a.displayName caseInsensitiveCompare:b.displayName];
+        }];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completion(items);
+        });
+    });
+}
+
+#pragma mark - Metadata (local-first, remote-fallback, supports fabric/mods.toml/neoforge.mods.toml)
 
 - (NSDictionary<NSString *, NSString *> *)parseFirstModsTableFromTomlString:(NSString *)s {
     if (!s) return @{};
     NSRange modsRange = [s rangeOfString:@"[[mods]]"];
     if (modsRange.location == NSNotFound) {
-        // also accept [mods] (loose)
         modsRange = [s rangeOfString:@"[mods]"];
         if (modsRange.location == NSNotFound) return @{};
     }
     NSUInteger start = modsRange.location;
-    // limit the parsing area reasonably
     NSUInteger end = s.length;
-    // stop at next double-bracket section or EOF
     NSRange nextSection = [s rangeOfString:@"[[" options:0 range:NSMakeRange(start+1, s.length - (start+1))];
     if (nextSection.location != NSNotFound) end = nextSection.location;
     NSString *block = [s substringWithRange:NSMakeRange(start, end - start)];
-
     NSMutableDictionary *out = [NSMutableDictionary dictionary];
 
-    // helper to search key = "val" or key = 'val' or key = """val""" or key = '''val''' or key = [ ... ]
-    NSArray<NSString *> *keys = @[@"displayName", @"version", @"description", @"logoFile", @"displayURL", @"authors", @"url", @"displayURL", @"homepage"];
+    NSArray<NSString *> *keys = @[@"displayName", @"version", @"description", @"logoFile", @"displayURL", @"authors", @"homepage", @"url"];
     for (NSString *key in keys) {
-        // triple-quote strings
+        // triple-quote
         NSString *patternTriple = [NSString stringWithFormat:@"%@\\s*=\\s*([\"']{3})([\\s\\S]*?)\\1", key];
         NSRegularExpression *reTriple = [NSRegularExpression regularExpressionWithPattern:patternTriple options:NSRegularExpressionCaseInsensitive error:nil];
         NSTextCheckingResult *rTriple = [reTriple firstMatchInString:block options:0 range:NSMakeRange(0, block.length)];
@@ -163,7 +262,7 @@
                 continue;
             }
         }
-        // authors as array: authors = ["name", ...]
+        // authors array
         if ([key isEqualToString:@"authors"]) {
             NSString *patternArr = @"authors\\s*=\\s*\\[([^\\]]+)\\]";
             NSRegularExpression *reArr = [NSRegularExpression regularExpressionWithPattern:patternArr options:NSRegularExpressionCaseInsensitive error:nil];
@@ -172,7 +271,6 @@
                 NSRange inner = [ra rangeAtIndex:1];
                 if (inner.location != NSNotFound) {
                     NSString *arr = [block substringWithRange:inner];
-                    // pick first quoted entry
                     NSRegularExpression *reQ = [NSRegularExpression regularExpressionWithPattern:@"[\"'](.*?)[\"']" options:0 error:nil];
                     NSTextCheckingResult *rq = [reQ firstMatchInString:arr options:0 range:NSMakeRange(0, arr.length)];
                     if (rq) {
@@ -183,11 +281,8 @@
             }
         }
     }
-
     return out;
 }
-
-#pragma mark - Metadata fetch (local TOML/JSON + remote fallback)
 
 - (void)fetchMetadataForMod:(ModItem *)mod completion:(ModMetadataHandler)completion {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
@@ -195,17 +290,12 @@
         if (sha1) mod.fileSHA1 = sha1;
 
         __block BOOL gotLocal = NO;
-
-        // Read jar bytes once for local heuristics (avoid repeated disk reads)
         NSData *jarData = [NSData dataWithContentsOfFile:mod.filePath];
         NSString *jarText = nil;
-        if (jarData) {
-            jarText = [[NSString alloc] initWithData:jarData encoding:NSUTF8StringEncoding];
-        }
+        if (jarData) jarText = [[NSString alloc] initWithData:jarData encoding:NSUTF8StringEncoding];
 
-        // 1) fabric.mod.json (existing approach)
+        // 1) fabric.mod.json
         if (jarText && [jarText rangeOfString:@"fabric.mod.json"].location != NSNotFound) {
-            // attempt to parse JSON block (same crude method as before)
             NSRange fmRange = [jarText rangeOfString:@"fabric.mod.json"];
             NSRange braceRange = [jarText rangeOfString:@"{" options:0 range:NSMakeRange(fmRange.location, jarText.length - fmRange.location)];
             if (braceRange.location != NSNotFound) {
@@ -233,7 +323,6 @@
                                 else if (d[@"sources"] && [d[@"sources"] isKindOfClass:[NSString class]]) mod.sources = d[@"sources"];
                                 if (d[@"icon"] && [d[@"icon"] isKindOfClass:[NSString class]]) {
                                     mod.iconPathInJar = d[@"icon"];
-                                    // try to extract
                                     NSString *cacheDir = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) firstObject];
                                     NSString *iconsDir = [cacheDir stringByAppendingPathComponent:@"mod_icons"];
                                     if (![[NSFileManager defaultManager] fileExistsAtPath:iconsDir]) {
@@ -255,65 +344,52 @@
             }
         }
 
-        // 2) mods.toml or neoforge.mods.toml (Forge / NeoForge)
+        // 2) mods.toml / neoforge.mods.toml
         if (!gotLocal && jarText) {
-            BOOL foundForgeToml = NO;
-            NSRange r1 = [jarText rangeOfString:@"mods.toml"];
-            NSRange r2 = [jarText rangeOfString:@"neoforge.mods.toml"];
-            if (r1.location != NSNotFound) foundForgeToml = YES;
-            if (r2.location != NSNotFound) foundForgeToml = YES;
-
-            if (foundForgeToml) {
-                // crude: try to find the textual mods.toml content in the jar bytes by searching for "mods.toml" and then extracting likely toml snippet
-                // Better approach: use a zip library to read META-INF/mods.toml; this is a heuristic fallback.
-                // Attempt to find substring "mods.toml" and then locate nearby lines with keys
-                // For safety, search full jar text for presence of '[[mods]]' then parse block
-                if ([jarText rangeOfString:@"[[mods]]"].location != NSNotFound || [jarText rangeOfString:@"[mods]"].location != NSNotFound) {
-                    NSDictionary *fields = [self parseFirstModsTableFromTomlString:jarText];
-                    if (fields.count > 0) {
-                        // prefer displayName, fallback to name-like keys
-                        NSString *dname = fields[@"displayName"] ?: fields[@"name"];
-                        if (dname.length) mod.displayName = dname;
-                        if (fields[@"description"]) mod.modDescription = fields[@"description"];
-                        if (fields[@"version"]) mod.version = fields[@"version"];
-                        if (fields[@"displayURL"]) mod.homepage = fields[@"displayURL"];
-                        if (fields[@"homepage"]) mod.homepage = fields[@"homepage"];
-                        if (fields[@"logoFile"]) {
-                            NSString *logo = fields[@"logoFile"];
-                            // Try several internal paths to extract logo:
-                            NSArray *cands = @[
-                                logo,
-                                [NSString stringWithFormat:@"assets/%@/%@", [mod basename], logo],
-                                [NSString stringWithFormat:@"assets/%@/%@", [mod basename.lowercaseString stringByReplacingOccurrencesOfString:@" " withString:@"_"], logo],
-                                [logo lastPathComponent]
-                            ];
-                            NSString *cacheDir = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) firstObject];
-                            NSString *iconsDir = [cacheDir stringByAppendingPathComponent:@"mod_icons"];
-                            if (![[NSFileManager defaultManager] fileExistsAtPath:iconsDir]) {
-                                [[NSFileManager defaultManager] createDirectoryAtPath:iconsDir withIntermediateDirectories:YES attributes:nil error:nil];
-                            }
-                            for (NSString *p in cands) {
-                                NSString *dest = [iconsDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@_%@", [mod.basename stringByReplacingOccurrencesOfString:@" " withString:@"_"], [p lastPathComponent]]];
-                                if ([self extractPNGFromJar:mod.filePath internalPath:p destPath:dest]) {
-                                    mod.iconURL = [NSURL fileURLWithPath:dest].absoluteString;
-                                    mod.iconPathInJar = p;
-                                    break;
-                                }
+            BOOL hasModsToml = ([jarText rangeOfString:@"mods.toml"].location != NSNotFound) || ([jarText rangeOfString:@"neoforge.mods.toml"].location != NSNotFound);
+            if (hasModsToml && ([jarText rangeOfString:@"[[mods]]"].location != NSNotFound || [jarText rangeOfString:@"[mods]"].location != NSNotFound)) {
+                NSDictionary *fields = [self parseFirstModsTableFromTomlString:jarText];
+                if (fields.count > 0) {
+                    NSString *dname = fields[@"displayName"] ?: fields[@"name"];
+                    if (dname.length) mod.displayName = dname;
+                    if (fields[@"description"]) mod.modDescription = fields[@"description"];
+                    if (fields[@"version"]) mod.version = fields[@"version"];
+                    if (fields[@"displayURL"]) mod.homepage = fields[@"displayURL"];
+                    if (fields[@"homepage"]) mod.homepage = fields[@"homepage"];
+                    if (fields[@"logoFile"]) {
+                        NSString *logo = fields[@"logoFile"];
+                        NSArray *cands = @[
+                            logo ?: @"",
+                            [NSString stringWithFormat:@"assets/%@/%@", [[mod basename] lowercaseString] ? [[mod basename] lowercaseString] : [mod basename], logo ?: @""],
+                            [NSString stringWithFormat:@"assets/%@/%@", [[[mod basename] lowercaseString] stringByReplacingOccurrencesOfString:@" " withString:@"_"], logo ?: @""],
+                            [logo lastPathComponent] ?: @""
+                        ];
+                        NSString *cacheDir = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) firstObject];
+                        NSString *iconsDir = [cacheDir stringByAppendingPathComponent:@"mod_icons"];
+                        if (![[NSFileManager defaultManager] fileExistsAtPath:iconsDir]) {
+                            [[NSFileManager defaultManager] createDirectoryAtPath:iconsDir withIntermediateDirectories:YES attributes:nil error:nil];
+                        }
+                        for (NSString *p in cands) {
+                            if (!p || p.length == 0) continue;
+                            NSString *dest = [iconsDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@_%@", [[mod basename] stringByReplacingOccurrencesOfString:@" " withString:@"_"], [p lastPathComponent]]];
+                            if ([self extractPNGFromJar:mod.filePath internalPath:p destPath:dest]) {
+                                mod.iconURL = [NSURL fileURLWithPath:dest].absoluteString;
+                                mod.iconPathInJar = p;
+                                break;
                             }
                         }
-                        // If file name or jar contains 'neoforge' marker, set isNeoForge
-                        if ([jarText rangeOfString:@"neoforge"].location != NSNotFound || [jarText rangeOfString:@"neoforge.mods.toml"].location != NSNotFound) {
-                            mod.isNeoForge = YES;
-                        } else {
-                            mod.isForge = YES;
-                        }
-                        gotLocal = YES;
                     }
+                    if ([jarText rangeOfString:@"neoforge"].location != NSNotFound || [jarText rangeOfString:@"neoforge.mods.toml"].location != NSNotFound) {
+                        mod.isNeoForge = YES;
+                    } else {
+                        mod.isForge = YES;
+                    }
+                    gotLocal = YES;
                 }
             }
         }
 
-        // 3) mcmod.info (older Forge) — keep previous heuristic
+        // 3) mcmod.info (old)
         if (!gotLocal && jarText) {
             NSRange mcRange = [jarText rangeOfString:@"mcmod.info"];
             if (mcRange.location != NSNotFound) {
@@ -353,26 +429,10 @@
             }
         }
 
-        // If we didn't get local metadata and onlineSearchEnabled == YES, try remote first
+        // Remote fallback (Modrinth) if local not present or onlineSearchEnabled requested
         __block BOOL didRemote = NO;
         void (^remoteSearchBlock)(void) = ^{
             NSString *query = mod.displayName ?: [mod basename];
-            // if fabric, try to extract name quickly from jarText
-            if (!mod.isFabric && jarText && [jarText rangeOfString:@"fabric.mod.json"].location != NSNotFound) {
-                NSRange nameRange = [jarText rangeOfString:@"\"name\"\\s*:\\s*\"" options:NSRegularExpressionSearch];
-                if (nameRange.location != NSNotFound) {
-                    NSUInteger start = NSMaxRange(nameRange);
-                    NSUInteger pos = start;
-                    NSMutableString *buf = [NSMutableString string];
-                    while (pos < jarText.length) {
-                        unichar c = [jarText characterAtIndex:pos++];
-                        if (c == '\"') break;
-                        [buf appendFormat:@"%C", c];
-                    }
-                    if (buf.length) query = buf;
-                }
-            }
-
             query = [query stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
             NSString *q = [query stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]];
             if (!q) return;
@@ -418,11 +478,9 @@
         if (self.onlineSearchEnabled) {
             @try { remoteSearchBlock(); } @catch (...) {}
             if (!didRemote && !gotLocal) {
-                // local fallback
-                // (we already tried local above in current flow)
+                // nothing more
             }
         } else {
-            // local-priority already executed above
             if (!gotLocal) {
                 @try { remoteSearchBlock(); } @catch (...) {}
             }
@@ -434,6 +492,36 @@
     });
 }
 
-#pragma mark - other methods (scan, toggle, delete)...
-// existing scanModsForProfile:, existing existingModsFolderForProfile:, toggleEnableForMod:, deleteMod: implementations remain unchanged
+#pragma mark - File ops (toggle / delete)
+
+- (BOOL)toggleEnableForMod:(ModItem *)mod error:(NSError **)error {
+    NSString *path = mod.filePath;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    if (mod.disabled) {
+        NSString *newName = [mod.fileName stringByReplacingOccurrencesOfString:@".disabled" withString:@""];
+        NSString *newPath = [[mod.filePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:newName];
+        BOOL ok = [fm moveItemAtPath:path toPath:newPath error:error];
+        if (ok) {
+            mod.filePath = newPath;
+            mod.fileName = newName;
+            mod.disabled = NO;
+        }
+        return ok;
+    } else {
+        NSString *newName = [mod.fileName stringByAppendingString:@".disabled"];
+        NSString *newPath = [[mod.filePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:newName];
+        BOOL ok = [fm moveItemAtPath:path toPath:newPath error:error];
+        if (ok) {
+            mod.filePath = newPath;
+            mod.fileName = newName;
+            mod.disabled = YES;
+        }
+        return ok;
+    }
+}
+
+- (BOOL)deleteMod:(ModItem *)mod error:(NSError **)error {
+    return [[NSFileManager defaultManager] removeItemAtPath:mod.filePath error:error];
+}
+
 @end
