@@ -13,6 +13,7 @@
 @interface ModsManagerViewController () <UITableViewDataSource, UITableViewDelegate, ModTableViewCellDelegate>
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) NSArray<ModItem *> *mods;
+@property (nonatomic, strong) UIBarButtonItem *onlineToggleItem;
 @end
 
 @implementation ModsManagerViewController
@@ -34,9 +35,28 @@
     self.tableView.delegate = self;
     [self.view addSubview:self.tableView];
 
+    // Online search toggle on the left of refresh
+    self.onlineToggleItem = [[UIBarButtonItem alloc] initWithTitle:@"上网搜索: 关" style:UIBarButtonItemStylePlain target:self action:@selector(toggleOnlineSearch)];
+    self.navigationItem.leftBarButtonItem = self.onlineToggleItem;
+
     UIBarButtonItem *refresh = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshList)];
     self.navigationItem.rightBarButtonItem = refresh;
 
+    [self refreshOnlineToggleUI];
+    [self refreshList];
+}
+
+- (void)refreshOnlineToggleUI {
+    BOOL on = [ModService sharedService].onlineSearchEnabled;
+    self.onlineToggleItem.title = on ? @"上网搜索: 开" : @"上网搜索: 关";
+    self.onlineToggleItem.tintColor = on ? [UIColor systemBlueColor] : [UIColor systemGrayColor];
+}
+
+- (void)toggleOnlineSearch {
+    ModService *svc = [ModService sharedService];
+    svc.onlineSearchEnabled = !svc.onlineSearchEnabled;
+    [self refreshOnlineToggleUI];
+    // Optionally re-fetch metadata to reflect different priority
     [self refreshList];
 }
 

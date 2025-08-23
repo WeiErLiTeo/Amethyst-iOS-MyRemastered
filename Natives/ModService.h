@@ -26,6 +26,10 @@ typedef void(^ModMetadataHandler)(ModItem *item, NSError * _Nullable error);
 // Return an existing mods folder path for the given profile if found, otherwise nil.
 - (nullable NSString *)existingModsFolderForProfile:(NSString *)profileName;
 
+// Controls whether metadata fetching should prefer online search first (YES)
+// or local jar parsing first (NO). Defaults to NO.
+@property (nonatomic, assign) BOOL onlineSearchEnabled;
+
 @end
 
 NS_ASSUME_NONNULL_END
