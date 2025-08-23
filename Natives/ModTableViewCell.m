@@ -6,97 +6,106 @@
 //
 
 #import "ModTableViewCell.h"
-#import "ModItem.h"
-#import "ModService.h"
+#import "UIKit+AFNetworking.h"
+
+@interface ModTableViewCell ()
+@property (nonatomic, strong) UIImageView *modIconView;
+@property (nonatomic, strong) UILabel *titleLabel;
+@property (nonatomic, strong) UILabel *descLabel;
+@property (nonatomic, strong) UIButton *toggleButton;
+@property (nonatomic, strong) UIButton *deleteButton;
+@property (nonatomic, strong) ModItem *currentMod;
+@end
 
 @implementation ModTableViewCell
 
 - (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
-    if (self = [super initWithStyle:style reuseIdentifier:reuseIdentifier]) {
-        _modIconView = [[UIImageView alloc] initWithFrame:CGRectZero];
-        _modIconView.layer.cornerRadius = 6;
-        _modIconView.clipsToBounds = YES;
-        _modIconView.contentMode = UIViewContentModeScaleAspectFill;
-        [self.contentView addSubview:_modIconView];
+    self = [super initWithStyle:UITableViewCellStyleDefault reuseIdentifier:reuseIdentifier];
+    if (!self) return nil;
 
-        _nameLabel = [[UILabel alloc] initWithFrame:CGRectZero];
-        _nameLabel.font = [UIFont boldSystemFontOfSize:15];
-        [self.contentView addSubview:_nameLabel];
+    self.modIconView = [[UIImageView alloc] initWithFrame:CGRectZero];
+    self.modIconView.contentMode = UIViewContentModeScaleAspectFit;
+    self.modIconView.clipsToBounds = YES;
+    self.modIconView.layer.cornerRadius = 6.0;
+    [self.contentView addSubview:self.modIconView];
 
-        _descLabel = [[UILabel alloc] initWithFrame:CGRectZero];
-        _descLabel.font = [UIFont systemFontOfSize:12];
-        _descLabel.textColor = [UIColor darkGrayColor];
-        _descLabel.numberOfLines = 2;
-        [self.contentView addSubview:_descLabel];
+    self.titleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    self.titleLabel.font = [UIFont boldSystemFontOfSize:16];
+    [self.contentView addSubview:self.titleLabel];
 
-        _toggleButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        [_toggleButton addTarget:self action:@selector(toggleTapped) forControlEvents:UIControlEventTouchUpInside];
-        [self.contentView addSubview:_toggleButton];
+    self.descLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    self.descLabel.font = [UIFont systemFontOfSize:12];
+    self.descLabel.textColor = [UIColor systemGrayColor];
+    self.descLabel.numberOfLines = 2;
+    [self.contentView addSubview:self.descLabel];
 
-        _deleteButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        [_deleteButton setTitleColor:[UIColor systemRedColor] forState:UIControlStateNormal];
-        [_deleteButton setTitle:@"删除" forState:UIControlStateNormal];
-        [_deleteButton addTarget:self action:@selector(deleteTapped) forControlEvents:UIControlEventTouchUpInside];
-        [self.contentView addSubview:_deleteButton];
-    }
+    self.toggleButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.toggleButton setTitle:@"切换" forState:UIControlStateNormal];
+    [self.toggleButton addTarget:self action:@selector(actionToggle:) forControlEvents:UIControlEventTouchUpInside];
+    [self.contentView addSubview:self.toggleButton];
+
+    self.deleteButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.deleteButton setTitle:@"删除" forState:UIControlStateNormal];
+    [self.deleteButton setTitleColor:[UIColor systemRedColor] forState:UIControlStateNormal];
+    [self.deleteButton addTarget:self action:@selector(actionDelete:) forControlEvents:UIControlEventTouchUpInside];
+    [self.contentView addSubview:self.deleteButton];
+
     return self;
 }
 
 - (void)layoutSubviews {
     [super layoutSubviews];
+
     CGFloat padding = 10;
-    CGFloat iconSize = 48;
-    self.modIconView.frame = CGRectMake(padding, padding, iconSize, iconSize);
-    CGFloat x = CGRectGetMaxX(self.modIconView.frame) + 10;
-    CGFloat rightButtonsWidth = 140;
-    CGFloat contentWidth = self.contentView.bounds.size.width - x - padding - rightButtonsWidth;
-    self.nameLabel.frame = CGRectMake(x, padding, contentWidth, 20);
-    self.descLabel.frame = CGRectMake(x, CGRectGetMaxY(self.nameLabel.frame) + 4, contentWidth, 36);
-    self.toggleButton.frame = CGRectMake(self.contentView.bounds.size.width - rightButtonsWidth + 10, 12, 60, 28);
-    self.deleteButton.frame = CGRectMake(self.contentView.bounds.size.width - 60 - 12, 12, 60, 28);
+    CGFloat iconSize = 56;
+    self.modIconView.frame = CGRectMake(padding, (self.contentView.bounds.size.height - iconSize)/2, iconSize, iconSize);
+
+    CGFloat left = CGRectGetMaxX(self.modIconView.frame) + 12;
+    CGFloat right = self.contentView.bounds.size.width - padding;
+    CGFloat buttonWidth = 56;
+
+    self.titleLabel.frame = CGRectMake(left, padding, right - left - buttonWidth*2 - 8, 20);
+    self.descLabel.frame = CGRectMake(left, CGRectGetMaxY(self.titleLabel.frame) + 4, right - left - buttonWidth*2 - 8, 36);
+
+    self.deleteButton.frame = CGRectMake(right - buttonWidth, (self.contentView.bounds.size.height - 30)/2, buttonWidth, 30);
+    self.toggleButton.frame = CGRectMake(right - buttonWidth*2 - 6, (self.contentView.bounds.size.height - 30)/2, buttonWidth, 30);
+}
+
+- (void)prepareForReuse {
+    [super prepareForReuse];
+    self.modIconView.image = nil;
+    self.titleLabel.text = nil;
+    self.descLabel.text = nil;
+    self.currentMod = nil;
 }
 
 - (void)configureWithMod:(ModItem *)mod {
-    self.nameLabel.text = mod.displayName ?: mod.fileName;
-    self.descLabel.text = mod.modDescription ?: @"";
+    self.currentMod = mod;
+    self.titleLabel.text = mod.displayName ?: [mod basename];
+    self.descLabel.text = mod.modDescription ?: mod.fileName;
+
+    UIImage *placeholder = [[UIImage imageNamed:@"DefaultModIcon"] _imageWithSize:CGSizeMake(56, 56)];
+    if (mod.iconURL.length) {
+        [self.modIconView setImageWithURL:[NSURL URLWithString:mod.iconURL] placeholderImage:placeholder];
+    } else {
+        // fallback to file-based icon if any (not implemented here), otherwise placeholder
+        self.modIconView.image = placeholder;
+    }
+
+    // Update toggle button title based on disabled flag
     NSString *toggleTitle = mod.disabled ? @"启用" : @"禁用";
     [self.toggleButton setTitle:toggleTitle forState:UIControlStateNormal];
-
-    UIImage *placeholder = [UIImage systemImageNamed:@"cube.box"];
-    self.modIconView.image = placeholder;
-    if (mod.iconURL.length > 0) {
-        NSString *cachePath = [[ModService sharedService] iconCachePathForURL:mod.iconURL];
-        if ([[NSFileManager defaultManager] fileExistsAtPath:cachePath]) {
-            NSData *d = [NSData dataWithContentsOfFile:cachePath];
-            UIImage *img = [UIImage imageWithData:d];
-            if (img) self.modIconView.image = img;
-        } else {
-            NSURL *url = [NSURL URLWithString:mod.iconURL];
-            if (url) {
-                dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-                    NSData *d = [NSData dataWithContentsOfURL:url];
-                    if (d) {
-                        [d writeToFile:cachePath atomically:YES];
-                        dispatch_async(dispatch_get_main_queue(), ^{
-                            UIImage *img = [UIImage imageWithData:d];
-                            if (img) self.modIconView.image = img;
-                        });
-                    }
-                });
-            }
-        }
-    }
 }
 
 #pragma mark - Actions
 
-- (void)toggleTapped {
+- (void)actionToggle:(id)sender {
     if ([self.delegate respondsToSelector:@selector(modCellDidTapToggle:)]) {
         [self.delegate modCellDidTapToggle:self];
     }
 }
 
-- (void)deleteTapped {
+- (void)actionDelete:(id)sender {
     if ([self.delegate respondsToSelector:@selector(modCellDidTapDelete:)]) {
         [self.delegate modCellDidTapDelete:self];
     }

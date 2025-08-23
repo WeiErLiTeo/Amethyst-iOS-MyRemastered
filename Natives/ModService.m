@@ -8,6 +8,7 @@
 #import "ModService.h"
 #import <CommonCrypto/CommonCrypto.h>
 #import <UIKit/UIKit.h>
+#import "PLProfiles.h"
 
 @implementation ModService
 
@@ -34,6 +35,62 @@
 - (nullable NSString *)existingModsFolderForProfile:(NSString *)profileName {
     NSString *profile = profileName.length ? profileName : @"default";
     NSFileManager *fm = NSFileManager.defaultManager;
+
+    // If PLProfiles contains an explicit gameDir for this profile, try to resolve it first.
+    @try {
+        NSDictionary *profiles = PLProfiles.current.profiles;
+        NSDictionary *prof = profiles[profile];
+        if ([prof isKindOfClass:[NSDictionary class]]) {
+            NSString *gameDir = prof[@"gameDir"];
+            if ([gameDir isKindOfClass:[NSString class]] && gameDir.length > 0) {
+                // If starts with "./" -> relative to POJAV_GAME_DIR
+                if ([gameDir hasPrefix:@"./"]) {
+                    const char *gameDirC = getenv("POJAV_GAME_DIR");
+                    if (gameDirC) {
+                        NSString *pojGameDir = [NSString stringWithUTF8String:gameDirC];
+                        NSString *rel = [gameDir substringFromIndex:2]; // strip ./
+                        NSString *cand = [pojGameDir stringByAppendingPathComponent:rel];
+                        NSString *candMods = [cand stringByAppendingPathComponent:@"mods"];
+                        BOOL isDir = NO;
+                        if ([fm fileExistsAtPath:candMods isDirectory:&isDir] && isDir) return candMods;
+                        // sometimes the gameDir itself might already be a mods folder
+                        if ([fm fileExistsAtPath:cand isDirectory:&isDir] && isDir) {
+                            NSString *cand2 = [cand stringByAppendingPathComponent:@"mods"];
+                            if ([fm fileExistsAtPath:cand2 isDirectory:&isDir] && isDir) return cand2;
+                        }
+                    }
+                } else if ([gameDir hasPrefix:@"/"]) {
+                    // absolute path
+                    NSString *candMods = [gameDir stringByAppendingPathComponent:@"mods"];
+                    BOOL isDir = NO;
+                    if ([fm fileExistsAtPath:candMods isDirectory:&isDir] && isDir) return candMods;
+                    if ([fm fileExistsAtPath:gameDir isDirectory:&isDir] && isDir) {
+                        // maybe mods are directly inside this path
+                        NSString *cand2 = [gameDir stringByAppendingPathComponent:@"mods"];
+                        if ([fm fileExistsAtPath:cand2 isDirectory:&isDir] && isDir) return cand2;
+                    }
+                } else {
+                    // treat as an instance name or relative instance folder
+                    // Candidate: POJAV_HOME/instances/<gameDir>/mods
+                    const char *pojHomeC = getenv("POJAV_HOME");
+                    if (pojHomeC) {
+                        NSString *pojHome = [NSString stringWithUTF8String:pojHomeC];
+                        NSString *cand1 = [pojHome stringByAppendingPathComponent:[NSString stringWithFormat:@"instances/%@/mods", gameDir]];
+                        BOOL isDir = NO;
+                        if ([fm fileExistsAtPath:cand1 isDirectory:&isDir] && isDir) return cand1;
+                    }
+                    // Candidate: Documents/instances/<gameDir>/mods
+                    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+                    NSString *documents = paths.firstObject;
+                    NSString *cand2 = [documents stringByAppendingPathComponent:[NSString stringWithFormat:@"instances/%@/mods", gameDir]];
+                    BOOL isDir2 = NO;
+                    if ([fm fileExistsAtPath:cand2 isDirectory:&isDir2] && isDir2) return cand2;
+                }
+            }
+        }
+    } @catch (NSException *ex) {
+        // ignore and proceed to general candidates
+    }
 
     // Candidate 1: POJAV_HOME/instances/<profile>/mods
     const char *pojHomeC = getenv("POJAV_HOME");
@@ -96,7 +153,7 @@
     });
 }
 
-#pragma mark - Metadata (Modrinth search fallback)
+#pragma mark - Metadata (try local jar -> modrinth fallback)
 
 - (void)fetchMetadataForMod:(ModItem *)mod completion:(ModMetadataHandler)completion {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
@@ -104,9 +161,111 @@
         NSString *sha1 = [self sha1ForFileAtPath:mod.filePath];
         if (sha1) mod.fileSHA1 = sha1;
 
-        // Simple fallback: search Modrinth by displayName keyword
-        NSString *query = [mod.displayName stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]];
-        NSString *searchURL = [NSString stringWithFormat:@"https://api.modrinth.com/v2/search?query=%@&index=0&limit=5", query ?: @""];
+        // Attempt 1: parse metadata from jar itself (fabric.mod.json, mcmod.info)
+        BOOL gotLocal = NO;
+        NSData *data = [NSData dataWithContentsOfFile:mod.filePath];
+        if (data) {
+            NSString *s = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+            if (s) {
+                // fabric.mod.json
+                NSRange fmRange = [s rangeOfString:@"fabric.mod.json"];
+                if (fmRange.location != NSNotFound) {
+                    // find { after the filename occurrence
+                    NSRange braceRange = [s rangeOfString:@"{" options:0 range:NSMakeRange(fmRange.location, s.length - fmRange.location)];
+                    if (braceRange.location != NSNotFound) {
+                        // crude matching: find matching '}' after braceRange
+                        NSUInteger start = braceRange.location;
+                        NSUInteger pos = start;
+                        int depth = 0;
+                        NSUInteger len = s.length;
+                        while (pos < len) {
+                            unichar c = [s characterAtIndex:pos];
+                            if (c == '{') depth++;
+                            else if (c == '}') {
+                                depth--;
+                                if (depth == 0) {
+                                    NSRange jsonRange = NSMakeRange(start, pos - start + 1);
+                                    NSString *jsonStr = [s substringWithRange:jsonRange];
+                                    NSData *jsonData = [jsonStr dataUsingEncoding:NSUTF8StringEncoding];
+                                    NSError *jerr = nil;
+                                    id obj = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&jerr];
+                                    if (!jerr && [obj isKindOfClass:[NSDictionary class]]) {
+                                        NSDictionary *d = obj;
+                                        if (d[@"name"] && [d[@"name"] isKindOfClass:[NSString class]]) {
+                                            mod.displayName = d[@"name"];
+                                        }
+                                        if (d[@"description"] && [d[@"description"] isKindOfClass:[NSString class]]) {
+                                            mod.modDescription = d[@"description"];
+                                        }
+                                        gotLocal = YES;
+                                    }
+                                    break;
+                                }
+                            }
+                            pos++;
+                        }
+                    }
+                }
+
+                // mcmod.info (JSON array)
+                if (!gotLocal) {
+                    NSRange mcRange = [s rangeOfString:@"mcmod.info"];
+                    if (mcRange.location != NSNotFound) {
+                        NSRange arrStart = [s rangeOfString:@"[" options:0 range:NSMakeRange(mcRange.location, s.length - mcRange.location)];
+                        if (arrStart.location != NSNotFound) {
+                            NSUInteger start = arrStart.location;
+                            NSUInteger pos = start;
+                            NSUInteger len = s.length;
+                            int depth = 0;
+                            while (pos < len) {
+                                unichar c = [s characterAtIndex:pos];
+                                if (c == '[') depth++;
+                                else if (c == ']') {
+                                    depth--;
+                                    if (depth == 0) {
+                                        NSRange jsonRange = NSMakeRange(start, pos - start + 1);
+                                        NSString *jsonStr = [s substringWithRange:jsonRange];
+                                        NSData *jsonData = [jsonStr dataUsingEncoding:NSUTF8StringEncoding];
+                                        NSError *jerr = nil;
+                                        id obj = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&jerr];
+                                        if (!jerr && [obj isKindOfClass:[NSArray class]]) {
+                                            NSArray *arr = obj;
+                                            if (arr.count > 0 && [arr[0] isKindOfClass:[NSDictionary class]]) {
+                                                NSDictionary *d = arr[0];
+                                                if (d[@"name"]) mod.displayName = d[@"name"];
+                                                if (d[@"description"]) mod.modDescription = d[@"description"];
+                                                gotLocal = YES;
+                                            }
+                                        }
+                                        break;
+                                    }
+                                }
+                                pos++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (gotLocal) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completion(mod, nil);
+            });
+            return;
+        }
+
+        // Fallback: query Modrinth by name
+        NSString *query = mod.displayName ?: [mod basename];
+        query = [query stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        query = [query stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]];
+        if (!query) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completion(mod, nil);
+            });
+            return;
+        }
+        NSString *searchURL = [NSString stringWithFormat:@"https://api.modrinth.com/v2/search?query=%@&limit=5", query];
         NSURL *urlObj = [NSURL URLWithString:searchURL];
         if (!urlObj) {
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -134,28 +293,35 @@
             NSArray *hits = json[@"hits"];
             if (hits.count > 0) {
                 NSDictionary *first = hits.firstObject;
-                NSString *desc = first[@"description"] ?: first[@"summary"] ?: @"";
-                NSString *icon = nil;
+                // try to fill description from hit or from project details
                 NSString *projectId = first[@"project_id"];
+                NSString *desc = first[@"description"] ?: first[@"title"] ?: nil;
+                __block NSString *iconUrl = nil;
                 if (projectId) {
                     NSString *projURL = [NSString stringWithFormat:@"https://api.modrinth.com/v2/project/%@", projectId];
                     NSData *projData = [NSData dataWithContentsOfURL:[NSURL URLWithString:projURL]];
                     if (projData) {
                         NSDictionary *projJson = [NSJSONSerialization JSONObjectWithData:projData options:0 error:nil];
                         if ([projJson isKindOfClass:[NSDictionary class]]) {
-                            icon = projJson[@"icon_url"];
-                            if (!icon) {
+                            iconUrl = projJson[@"icon_url"] ?: projJson[@"icon"] ?: nil;
+                            if (!iconUrl) {
                                 NSDictionary *icons = projJson[@"icons"];
                                 if ([icons isKindOfClass:[NSDictionary class]]) {
-                                    icon = icons[@"512"] ?: icons[@"256"] ?: icons[@"128"];
+                                    iconUrl = icons[@"512"] ?: icons[@"256"] ?: icons[@"128"];
                                 }
                             }
+                            if (!desc) desc = projJson[@"description"];
                         }
                     }
                 }
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    mod.modDescription = desc;
-                    mod.iconURL = icon;
+                    if (first[@"title"] && [first[@"title"] isKindOfClass:[NSString class]]) {
+                        mod.displayName = first[@"title"];
+                    } else if (mod.displayName.length == 0 && first[@"project_id"]) {
+                        // nothing to set
+                    }
+                    if (desc && [desc isKindOfClass:[NSString class]]) mod.modDescription = desc;
+                    if (iconUrl && [iconUrl isKindOfClass:[NSString class]]) mod.iconURL = iconUrl;
                     completion(mod, nil);
                 });
                 return;

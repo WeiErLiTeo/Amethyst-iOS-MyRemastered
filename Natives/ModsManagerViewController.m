@@ -21,8 +21,14 @@
     [super viewDidLoad];
     self.title = @"管理 Mod";
     self.view.backgroundColor = [UIColor systemBackgroundColor];
+
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStylePlain];
     self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+
+    // increase row height to fit larger icons and multi-line descriptions
+    self.tableView.estimatedRowHeight = 80;
+    self.tableView.rowHeight = 80;
+
     [self.tableView registerClass:[ModTableViewCell class] forCellReuseIdentifier:@"ModCell"];
     self.tableView.dataSource = self;
     self.tableView.delegate = self;
@@ -35,7 +41,7 @@
 }
 
 - (UILabel *)makeBackgroundLabelWithText:(NSString *)text {
-    UILabel *lbl = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, self.tableView.bounds.size.width, 100)];
+    UILabel *lbl = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, self.tableView.bounds.size.width, 120)];
     lbl.text = text;
     lbl.textAlignment = NSTextAlignmentCenter;
     lbl.textColor = [UIColor systemGrayColor];
