@@ -96,6 +96,18 @@ add_library(AmethystAccountJNI SHARED
 )
 target_link_libraries(AmethystAccountJNI)
 
+# 查找 libarchive
+find_path(ARCHIVE_INCLUDE_DIR archive.h)
+find_library(ARCHIVE_LIBRARY archive)
+
+if (ARCHIVE_INCLUDE_DIR AND ARCHIVE_LIBRARY)
+  message(STATUS "Found libarchive: ${ARCHIVE_LIBRARY}, include: ${ARCHIVE_INCLUDE_DIR}")
+  target_include_directories(AngelAuraAmethyst PRIVATE ${ARCHIVE_INCLUDE_DIR})
+  target_link_libraries(AngelAuraAmethyst PRIVATE ${ARCHIVE_LIBRARY})
+else()
+  message(WARNING "libarchive not found: ModService will not be compiled with libarchive support")
+endif()
+
 # Angel Aura Amethyst
 add_executable(AngelAuraAmethyst
   dyld_bypass_validation.m
