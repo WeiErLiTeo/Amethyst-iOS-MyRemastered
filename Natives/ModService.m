@@ -4,20 +4,16 @@
 //
 //  Created by Copilot on 2025-08-22.
 //
-//  Uses libarchive to reliably read files inside jar (zip) archives.
+//  Uses SSZipArchive to reliably read files inside jar (zip) archives.
 //
-
 #import "ModService.h"
 #import <CommonCrypto/CommonCrypto.h>
 #import <UIKit/UIKit.h>
 #import "PLProfiles.h"
 #import "ModItem.h"
-
-#include <archive.h>
-#include <archive_entry.h>
+#import "SSZipArchive.h"  // 替换 libarchive 头文件为 SSZipArchive
 
 @implementation ModService
-
 + (instancetype)sharedService {
     static ModService *s;
     static dispatch_once_t onceToken;
@@ -29,7 +25,6 @@
 }
 
 #pragma mark - Helpers
-
 - (NSString *)sha1ForFileAtPath:(NSString *)path {
     NSData *d = [NSData dataWithContentsOfFile:path];
     if (!d) return nil;
@@ -59,66 +54,49 @@
     return [folder stringByAppendingPathComponent:hex];
 }
 
-#pragma mark - Read specific entry from jar (libarchive)
-
+#pragma mark - Read specific entry from jar (SSZipArchive 替换 libarchive)
 - (NSData *)readFileFromJar:(NSString *)jarPath entryName:(NSString *)entryName {
-    if (!jarPath || !entryName) return nil;
-    struct archive *a = archive_read_new();
-    archive_read_support_format_zip(a);
-    archive_read_support_format_all(a);
-    archive_read_support_compression_all(a);
-
-    int r = archive_read_open_filename(a, [jarPath fileSystemRepresentation], 10240);
-    if (r != ARCHIVE_OK) {
-        archive_read_free(a);
+    if (!jarPath || !entryName || ![[NSFileManager defaultManager] fileExistsAtPath:jarPath]) {
         return nil;
     }
-
-    struct archive_entry *entry;
-    NSData *result = nil;
-    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
-        const char *path = archive_entry_pathname(entry);
-        if (!path) {
-            // skip
-        } else {
-            NSString *p = [NSString stringWithUTF8String:path];
-            if (!p) p = @"";
-            // Normalize paths for comparison
-            NSString *norm = [p stringByReplacingOccurrencesOfString:@"\\" withString:@"/"];
-            // Compare exact or basename matches
-            if ([norm isEqualToString:entryName] ||
-                [[norm lastPathComponent] isEqualToString:entryName] ||
-                [norm caseInsensitiveCompare:entryName] == NSOrderedSame) {
-                // Read entry data
-                off_t size = archive_entry_size(entry);
-                NSMutableData *buf = [NSMutableData data];
-                const void *buff = NULL;
-                ssize_t len;
-                char tmp[8192];
-                while ((len = archive_read_data(a, tmp, sizeof(tmp))) > 0) {
-                    [buf appendBytes:tmp length:(NSUInteger)len];
-                }
-                if (buf.length > 0) {
-                    result = [buf copy];
-                    break;
-                }
-            }
+    
+    __block NSData *targetFileData = nil;  // 存储目标文件数据
+    __block BOOL found = NO;  // 标记是否找到目标条目
+    
+    // 枚举 ZIP/JAR 包内所有条目
+    [SSZipArchive enumerateEntriesInZipFileAtPath:jarPath usingBlock:^(NSString * _Nonnull entryPath, zipped_file_info _Nonnull zipInfo, BOOL * _Nonnull stop) {
+        if (found) {
+            *stop = YES;  // 找到后终止枚举，提升效率
+            return;
         }
-        archive_read_data_skip(a);
-    }
-
-    archive_read_close(a);
-    archive_read_free(a);
-    return result;
+        
+        // 1. 归一化路径（统一替换 \ 为 /，与原代码逻辑一致）
+        NSString *normalizedEntryPath = [entryPath stringByReplacingOccurrencesOfString:@"\\" withString:@"/"];
+        NSString *normalizedTargetName = [entryName stringByReplacingOccurrencesOfString:@"\\" withString:@"/"];
+        
+        // 2. 匹配逻辑（完全对齐原代码：精确匹配、basename匹配、大小写不敏感匹配）
+        BOOL isMatch = 
+            [normalizedEntryPath isEqualToString:normalizedTargetName] ||  // 精确路径匹配
+            [[normalizedEntryPath lastPathComponent] isEqualToString:normalizedTargetName] ||  // basename 匹配
+            ([normalizedEntryPath caseInsensitiveCompare:normalizedTargetName] == NSOrderedSame);  // 大小写不敏感匹配
+        
+        if (isMatch) {
+            // 3. 读取目标条目数据（SSZipArchive 直接提供读取单个条目数据的接口）
+            targetFileData = [SSZipArchive dataForEntryAtPath:normalizedEntryPath inZipFileAtPath:jarPath];
+            found = YES;
+            *stop = YES;  // 终止后续枚举
+        }
+    } error:NULL];  // 如需处理错误可传入 NSError**参数
+    
+    return targetFileData;
 }
 
 #pragma mark - helpers for extracting first-matching resource (icon)
-
 - (NSString *)extractFirstMatchingImageFromJar:(NSString *)jarPath candidates:(NSArray<NSString *> *)candidates baseName:(NSString *)baseName {
     if (!jarPath) return nil;
     for (NSString *cand in candidates) {
         if (!cand || cand.length == 0) continue;
-        NSData *d = [self readFileFromJar:jarPath entryName:cand];
+        NSData *d = [self readFileFromJar:jarPath entryName:cand];  // 复用替换后的读取方法
         if (d && d.length > 8) {
             // check PNG header
             const unsigned char *bytes = d.bytes;
@@ -155,7 +133,6 @@
 }
 
 #pragma mark - TOML lightweight parser (unchanged heuristic)
-
 - (NSDictionary<NSString *, NSString *> *)parseFirstModsTableFromTomlString:(NSString *)s {
     if (!s) return @{};
     NSRange modsRange = [s rangeOfString:@"[[mods]]"];
@@ -169,7 +146,6 @@
     if (nextSection.location != NSNotFound) end = nextSection.location;
     NSString *block = [s substringWithRange:NSMakeRange(start, end - start)];
     NSMutableDictionary *out = [NSMutableDictionary dictionary];
-
     NSArray<NSString *> *keys = @[@"displayName", @"version", @"description", @"logoFile", @"displayURL", @"authors", @"homepage", @"url"];
     for (NSString *key in keys) {
         NSString *patternTriple = [NSString stringWithFormat:@"%@\\s*=\\s*([\"']{3})([\\s\\S]*?)\\1", key];
@@ -216,11 +192,9 @@
 }
 
 #pragma mark - Mods folder detection & scan (unchanged)
-
 - (nullable NSString *)existingModsFolderForProfile:(NSString *)profileName {
     NSString *profile = profileName.length ? profileName : @"default";
     NSFileManager *fm = NSFileManager.defaultManager;
-
     @try {
         NSDictionary *profiles = PLProfiles.current.profiles;
         NSDictionary *prof = profiles[profile];
@@ -318,16 +292,13 @@
 }
 
 #pragma mark - Metadata fetch (zip-based + online optional)
-
 - (void)fetchMetadataForMod:(ModItem *)mod completion:(ModMetadataHandler)completion {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
         NSString *sha1 = [self sha1ForFileAtPath:mod.filePath];
         if (sha1) mod.fileSHA1 = sha1;
-
         __block BOOL gotLocal = NO;
-
         // 1) Try to read fabric.mod.json directly from jar
-        NSData *fabricJsonData = [self readFileFromJar:mod.filePath entryName:@"fabric.mod.json"];
+        NSData *fabricJsonData = [self readFileFromJar:mod.filePath entryName:@"fabric.mod.json"];  // 复用替换后的读取方法
         if (!fabricJsonData) {
             // sometimes it's stored under META-INF or root with different casing; try basenames
             fabricJsonData = [self readFileFromJar:mod.filePath entryName:@"META-INF/fabric.mod.json"];
@@ -359,10 +330,9 @@
                 gotLocal = YES;
             }
         }
-
         // 2) Try mods.toml (META-INF/mods.toml) and neoforge.mods.toml
         if (!gotLocal) {
-            NSData *modsTomlData = [self readFileFromJar:mod.filePath entryName:@"META-INF/mods.toml"];
+            NSData *modsTomlData = [self readFileFromJar:mod.filePath entryName:@"META-INF/mods.toml"];  // 复用替换后的读取方法
             if (!modsTomlData) modsTomlData = [self readFileFromJar:mod.filePath entryName:@"mods.toml"];
             if (!modsTomlData) modsTomlData = [self readFileFromJar:mod.filePath entryName:@"neoforge.mods.toml"];
             if (modsTomlData) {
@@ -398,10 +368,9 @@
                 }
             }
         }
-
         // 3) mcmod.info (old) — read directly if present
         if (!gotLocal) {
-            NSData *mcData = [self readFileFromJar:mod.filePath entryName:@"mcmod.info"];
+            NSData *mcData = [self readFileFromJar:mod.filePath entryName:@"mcmod.info"];  // 复用替换后的读取方法
             if (mcData) {
                 // mcmod.info might be JSON array
                 NSError *jerr = nil;
@@ -435,7 +404,6 @@
                 }
             }
         }
-
         // If local not found and onlineSearchEnabled == YES -> remote Modrinth search
         __block BOOL didRemote = NO;
         if (!gotLocal && self.onlineSearchEnabled) {
@@ -481,7 +449,6 @@
                 }
             }
         }
-
         dispatch_async(dispatch_get_main_queue(), ^{
             completion(mod, nil);
         });
@@ -489,7 +456,6 @@
 }
 
 #pragma mark - File operations
-
 - (BOOL)toggleEnableForMod:(ModItem *)mod error:(NSError **)error {
     NSString *path = mod.filePath;
     NSFileManager *fm = [NSFileManager defaultManager];
