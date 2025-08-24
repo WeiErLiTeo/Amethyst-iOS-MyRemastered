@@ -17,7 +17,7 @@ include_directories(
   "external/AFNetworking/AFNetworking"
   "external/AFNetworking/UIKit+AFNetworking"
   "external/DBNumberedSlider/Classes"
-  "external/NRFileManager"
+  "external/NRFileManager"  # 正确的 NRFileManager 头文件目录
   "external/UnzipKit"
   "external/fishhook"
   "external/lzma"
@@ -26,8 +26,8 @@ include_directories(
   "external/Apple"
   "external/ballpa1n"
   "external/ballpa1n/wrapped"
-  "."  # 当前路径（natives）包含 SSZipArchive.h
-  "minizip"  # minizip 头文件目录（mz.h 等）
+  "."  # 当前路径（Natives）包含 SSZipArchive.h
+  "minizip"  # minizip 头文件目录
 )
 # For cacio support library
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -rpath @loader_path -rpath @executable_path/java_runtimes/java-8-openjdk/lib -rpath /usr/lib/jvm/java-8-openjdk/lib")
@@ -107,7 +107,8 @@ add_executable(AngelAuraAmethyst
   customcontrols/CustomControlsUtils.m
   customcontrols/NSPredicateUtilitiesExternal.m
   external/DBNumberedSlider/Classes/DBNumberedSlider.m
-  external.mRFileManager/NSFileManager+NRFileManager.m
+  # 修正路径：将 "external.mRFileManager" 改为 "external/NRFileManager"（匹配实际目录结构）
+  external/NRFileManager/NSFileManager+NRFileManager.m
   external/ballpa1n/HostManager.c
   external/ballpa1n/wrapped/HostManagerBridge.m
   installer/FabricInstallViewController.m
@@ -163,9 +164,9 @@ add_executable(AngelAuraAmethyst
   ModService.m
   ModTableViewCell.m
   ModsManagerViewController.m
-  # SSZipArchive 核心文件（当前路径/natives下）
+  # SSZipArchive 核心文件（位于 Natives 目录下）
   SSZipArchive.m
-  # minizip 源文件（根据实际文件列表添加）
+  # minizip 源文件（位于 Natives/minizip 目录下）
   minizip/mz_compat.c
   minizip/mz_crypt.c
   minizip/mz_crypt_apple.c
