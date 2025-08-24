@@ -6,8 +6,8 @@ configure_file(${CMAKE_CURRENT_LIST_DIR}/config.h.in ${CMAKE_CURRENT_LIST_DIR}/c
 # and instead overrides it with the macOS SDK version when compiled
 # in Xcode on a Mac.
 set(CMAKE_OSX_DEPLOYMENT_TARGET 14.0)
-# 添加 -DZLIB_COMPAT 宏，强制 minizip 使用标准 zlib.h 而非 zlib-ng.h
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -target arm64-apple-ios -mcpu=apple-a8 -fcommon -fobjc-arc -ObjC -DZLIB_COMPAT -F'${CMAKE_OSX_SYSROOT}/System/Cryptexes/OS/System/Library/Frameworks'")
+# 添加 -DMZ_CRYPTO_DISABLE 禁用 minizip 加密功能，解决符号缺失
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -target arm64-apple-ios -mcpu=apple-a8 -fcommon -fobjc-arc -ObjC -DZLIB_COMPAT -DMZ_CRYPTO_DISABLE -F'${CMAKE_OSX_SYSROOT}/System/Cryptexes/OS/System/Library/Frameworks'")
 set(CMAKE_C_FLAGS_DEBUG "-funwind-tables -g")
 
 if("${CMAKE_HOST_SYSTEM_NAME}" MATCHES "Linux|^GNU$|Android")
@@ -21,7 +21,7 @@ include_directories(
   "external/AFNetworking/AFNetworking"
   "external/AFNetworking/UIKit+AFNetworking"
   "external/DBNumberedSlider/Classes"
-  "external/NRFileManager"  # 正确的 NRFileManager 头文件目录
+  "external/NRFileManager"
   "external/UnzipKit"
   "external/fishhook"
   "external/lzma"
@@ -30,8 +30,8 @@ include_directories(
   "external/Apple"
   "external/ballpa1n"
   "external/ballpa1n/wrapped"
-  "."  # 当前路径（Natives）包含 SSZipArchive.h
-  "minizip"  # minizip 头文件目录
+  "."
+  "minizip"
 )
 
 # For cacio support library
@@ -117,10 +117,9 @@ add_executable(AngelAuraAmethyst
   customcontrols/ControlLayout.m
   customcontrols/ControlSubButton.m
   customcontrols/CustomControlsUtils.m
-  customcontrols/NSPredicateUtilitiesExternal.m
+  customcontrols.mSPredicateUtilitiesExternal.m
   external/DBNumberedSlider/Classes/DBNumberedSlider.m
-  # 修正路径：将 "external.mRFileManager" 改为 "external/NRFileManager"（匹配实际目录结构）
-  external/NRFileManager/NSFileManager+NRFileManager.m
+  external.mRFileManager/NSFileManager+NRFileManager.m
   external/ballpa1n/HostManager.c
   external/ballpa1n/wrapped/HostManagerBridge.m
   installer/FabricInstallViewController.m
@@ -176,21 +175,17 @@ add_executable(AngelAuraAmethyst
   ModService.m
   ModTableViewCell.m
   ModsManagerViewController.m
-  # SSZipArchive 核心文件（位于 Natives 目录下）
+  # SSZipArchive 核心文件
   SSZipArchive.m
-  # minizip 源文件（位于 Natives/minizip 目录下）
+  # minizip 源文件（移除加密相关文件）
   minizip/mz_compat.c
-  minizip/mz_crypt.c
-  minizip/mz_crypt_apple.c
   minizip/mz_os.c
   minizip/mz_os_posix.c
   minizip/mz_strm.c
   minizip/mz_strm_buf.c
   minizip/mz_strm_mem.c
   minizip/mz_strm_os_posix.c
-  minizip/mz_strm_pkcrypt.c
   minizip/mz_strm_split.c
-  minizip/mz_strm_wzaes.c
   minizip/mz_strm_zlib.c
   minizip/mz_zip.c
   minizip/mz_zip_rw.c
@@ -221,7 +216,7 @@ target_link_libraries(AngelAuraAmethyst
   "-framework UnzipKit"
   "-framework WebKit"
   "-weak_framework SafariServices"
-  -lz  # 链接系统 zlib 库（SSZipArchive 和 minizip 依赖）
+  -lz  # 链接系统 zlib 库
 )
 
 set_target_properties(AngelAuraAmethyst PROPERTIES
