@@ -1,22 +1,17 @@
 cmake_minimum_required(VERSION 3.6)
 project(AngelAuraAmethyst)
-
 configure_file(${CMAKE_CURRENT_LIST_DIR}/config.h.in ${CMAKE_CURRENT_LIST_DIR}/config.h)
-
 # Using our build system, cmake doesn't respect -miphoneos-version-min=14.0
 # and instead overrides it with the macOS SDK version when compiled
 # in Xcode on a Mac.
 set(CMAKE_OSX_DEPLOYMENT_TARGET 14.0)
-
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -target arm64-apple-ios -mcpu=apple-a8 -fcommon -fobjc-arc -ObjC -F'${CMAKE_OSX_SYSROOT}/System/Cryptexes/OS/System/Library/Frameworks'")
 set(CMAKE_C_FLAGS_DEBUG "-funwind-tables -g")
-
 if("${CMAKE_HOST_SYSTEM_NAME}" MATCHES "Linux|^GNU$|Android")
 set(GLOBAL_LDFLAGS "-isysroot ${CMAKE_OSX_SYSROOT} -Wl,-syslibroot,${CMAKE_OSX_SYSROOT} -fuse-ld=lld")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GLOBAL_LDFLAGS}")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${GLOBAL_LDFLAGS}")
 endif()
-
 include_directories(
   "."
   "external/AFNetworking/AFNetworking"
@@ -31,17 +26,16 @@ include_directories(
   "external/Apple"
   "external/ballpa1n"
   "external/ballpa1n/wrapped"
+  "."  # 当前路径（natives）已包含 SSZipArchive.h，无需重复加natives
+  "minifile"  # minifile 目录在当前路径下，直接引用
 )
-
 # For cacio support library
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -rpath @loader_path -rpath @executable_path/java_runtimes/java-8-openjdk/lib -rpath /usr/lib/jvm/java-8-openjdk/lib")
-
 # EXT: stub library, delete after compile awt_xawt
 add_library(awt_headless SHARED
   awt_xawt/empty.m
 )
 target_link_libraries(awt_headless)
-
 # EXT: cacio support library
 add_library(awt_xawt SHARED
   awt_xawt/xawt_fake.m
@@ -50,12 +44,9 @@ target_link_libraries(awt_xawt
   "-L'${CMAKE_CURRENT_LIST_DIR}/build'"
   awt_headless
 )
-
 set(CMAKE_FRAMEWORK_PATH "${CMAKE_CURRENT_LIST_DIR}/resources/Frameworks")
-
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rpath @executable_path/Frameworks -rpath @loader_path/Frameworks")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -rpath @executable_path/Frameworks -rpath @loader_path/Frameworks")
-
 # ANGLE wrapper for 1.17+
 add_library(tinygl4angle SHARED
   external/gl4es/string_utils.c
@@ -67,7 +58,6 @@ target_link_libraries(tinygl4angle
   "-framework libEGL"
   "-framework libGLESv2"
 )
-
 # AFNetworking
 add_library(AFNetworking SHARED
   external/AFNetworking/AFNetworking/AFSecurityPolicy.m
@@ -89,13 +79,11 @@ target_link_libraries(AFNetworking
   "-framework SystemConfiguration"
   "-framework UIKit"
 )
-
 # MinecraftAccount JNI
 add_library(AmethystAccountJNI SHARED
   authenticator/MinecraftAccountJNI.m
 )
 target_link_libraries(AmethystAccountJNI)
-
 # Angel Aura Amethyst
 add_executable(AngelAuraAmethyst
   dyld_bypass_validation.m
@@ -105,11 +93,9 @@ add_executable(AngelAuraAmethyst
   JavaLauncher.m
   external/fishhook/fishhook.c
   UIKit+hook.m
-
   authenticator/BaseAuthenticator.m
   authenticator/LocalAuthenticator.m
   authenticator/MicrosoftAuthenticator.m
-
   ctxbridges/gl_bridge.m
   ctxbridges/osm_bridge.m
  
@@ -120,12 +106,10 @@ add_executable(AngelAuraAmethyst
   customcontrols/ControlSubButton.m
   customcontrols/CustomControlsUtils.m
   customcontrols/NSPredicateUtilitiesExternal.m
-
   external/DBNumberedSlider/Classes/DBNumberedSlider.m
   external/NRFileManager/NSFileManager+NRFileManager.m
   external/ballpa1n/HostManager.c
   external/ballpa1n/wrapped/HostManagerBridge.m
-
   installer/FabricInstallViewController.m
   installer/ForgeInstallViewController.m
   installer/ModpackInstallViewController.m
@@ -134,11 +118,9 @@ add_executable(AngelAuraAmethyst
   installer/modpack/ModpackAPI.m
   installer/modpack/CurseForgeAPI.m
   installer/modpack/ModrinthAPI.m
-
   input/ControllerInput.m
   input/GyroInput.m
   input/KeyboardInput.m
-
   AccountListViewController.m
   AppDelegate.m
   CustomControlsViewController.m
@@ -177,17 +159,21 @@ add_executable(AngelAuraAmethyst
   input_bridge_v3.m
   ios_uikit_bridge.m
   utils.m
-
   ModItem.m
   ModService.m
   ModTableViewCell.m
   ModsManagerViewController.m
+  # SSZipArchive 文件在当前路径（natives）下，直接引用
+  SSZipArchive.m
+  # minifile 文件在当前路径的 minifile 子目录下，直接引用
+  minifile/ioapi.c
+  minifile/mztools.c
+  minifile/unzip.c
+  minifile/zip.c
 )
-
 if("${CMAKE_HOST_SYSTEM_NAME}" MATCHES "Linux|^GNU$|Android")
 target_sources(AngelAuraAmethyst PUBLIC non_darwin_utils.m)
 endif()
-
 target_link_libraries(AngelAuraAmethyst
   PUBLIC AFNetworking
   lzma
@@ -209,6 +195,7 @@ target_link_libraries(AngelAuraAmethyst
   "-framework UnzipKit"
   "-framework WebKit"
   "-weak_framework SafariServices"
+  -lz  # 链接系统 zlib 库（SSZipArchive 依赖）
 )
 set_target_properties(AngelAuraAmethyst PROPERTIES
   MACOSX_BUNDLE TRUE
