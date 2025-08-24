@@ -26,8 +26,8 @@ include_directories(
   "external/Apple"
   "external/ballpa1n"
   "external/ballpa1n/wrapped"
-  "."  # 当前路径（natives）已包含 SSZipArchive.h，无需重复加natives
-  "minifile"  # minifile 目录在当前路径下，直接引用
+  "."  # 当前路径（natives）包含 SSZipArchive.h
+  "minizip"  # minizip 头文件目录（mz.h 等）
 )
 # For cacio support library
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -rpath @loader_path -rpath @executable_path/java_runtimes/java-8-openjdk/lib -rpath /usr/lib/jvm/java-8-openjdk/lib")
@@ -107,7 +107,7 @@ add_executable(AngelAuraAmethyst
   customcontrols/CustomControlsUtils.m
   customcontrols/NSPredicateUtilitiesExternal.m
   external/DBNumberedSlider/Classes/DBNumberedSlider.m
-  external/NRFileManager/NSFileManager+NRFileManager.m
+  external.mRFileManager/NSFileManager+NRFileManager.m
   external/ballpa1n/HostManager.c
   external/ballpa1n/wrapped/HostManagerBridge.m
   installer/FabricInstallViewController.m
@@ -163,13 +163,24 @@ add_executable(AngelAuraAmethyst
   ModService.m
   ModTableViewCell.m
   ModsManagerViewController.m
-  # SSZipArchive 文件在当前路径（natives）下，直接引用
+  # SSZipArchive 核心文件（当前路径/natives下）
   SSZipArchive.m
-  # minifile 文件在当前路径的 minifile 子目录下，直接引用
-  minifile/ioapi.c
-  minifile/mztools.c
-  minifile/unzip.c
-  minifile/zip.c
+  # minizip 源文件（根据实际文件列表添加）
+  minizip/mz_compat.c
+  minizip/mz_crypt.c
+  minizip/mz_crypt_apple.c
+  minizip/mz_os.c
+  minizip/mz_os_posix.c
+  minizip/mz_strm.c
+  minizip/mz_strm_buf.c
+  minizip/mz_strm_mem.c
+  minizip/mz_strm_os_posix.c
+  minizip/mz_strm_pkcrypt.c
+  minizip/mz_strm_split.c
+  minizip/mz_strm_wzaes.c
+  minizip/mz_strm_zlib.c
+  minizip/mz_zip.c
+  minizip/mz_zip_rw.c
 )
 if("${CMAKE_HOST_SYSTEM_NAME}" MATCHES "Linux|^GNU$|Android")
 target_sources(AngelAuraAmethyst PUBLIC non_darwin_utils.m)
@@ -195,7 +206,7 @@ target_link_libraries(AngelAuraAmethyst
   "-framework UnzipKit"
   "-framework WebKit"
   "-weak_framework SafariServices"
-  -lz  # 链接系统 zlib 库（SSZipArchive 依赖）
+  -lz  # 链接系统 zlib 库（SSZipArchive 和 minizip 依赖）
 )
 set_target_properties(AngelAuraAmethyst PROPERTIES
   MACOSX_BUNDLE TRUE
