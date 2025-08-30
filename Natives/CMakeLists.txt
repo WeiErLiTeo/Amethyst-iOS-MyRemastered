@@ -177,6 +177,9 @@ add_executable(AngelAuraAmethyst
   input_bridge_v3.m
   ios_uikit_bridge.m
   utils.m
+
+  # Ensure ModsManagerViewController is compiled (required by LauncherProfilesViewController)
+  ModsManagerViewController.m
 )
 
 if("${CMAKE_HOST_SYSTEM_NAME}" MATCHES "Linux|^GNU$|Android")
