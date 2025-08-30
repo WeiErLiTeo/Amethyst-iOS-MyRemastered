@@ -6,7 +6,9 @@
 //
 
 #import <UIKit/UIKit.h>
-#import "ModItem.h"
+@class ModItem;
+
+NS_ASSUME_NONNULL_BEGIN
 
 @protocol ModTableViewCellDelegate <NSObject>
 - (void)modCellDidTapToggle:(UITableViewCell *)cell;
@@ -15,7 +17,16 @@
 
 @interface ModTableViewCell : UITableViewCell
 
+@property (nonatomic, strong) UIImageView *modIconView;
+@property (nonatomic, strong) UILabel *nameLabel;
+@property (nonatomic, strong) UILabel *descLabel;
+@property (nonatomic, strong) UIButton *toggleButton;
+@property (nonatomic, strong) UIButton *deleteButton;
+
 @property (nonatomic, weak) id<ModTableViewCellDelegate> delegate;
+
 - (void)configureWithMod:(ModItem *)mod;
 
 @end
+
+NS_ASSUME_NONNULL_END
