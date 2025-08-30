@@ -3,8 +3,7 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
-//  Updated to fix open-link hit area, ensure loader badge loads from bundle (Natives/ModLoaderIcons fallback),
-//  and ensure buttons are on top so touches are registered.
+//  Updated: improved loader-badge loading, force original rendering, fix open-link hit area & aspect.
 //
 
 #import "ModTableViewCell.h"
@@ -52,9 +51,11 @@
         _openLinkButton.tintColor = [UIColor systemBlueColor];
         _openLinkButton.titleLabel.font = [UIFont systemFontOfSize:14];
         [_openLinkButton addTarget:self action:@selector(openLinkTapped) forControlEvents:UIControlEventTouchUpInside];
-        // make hit area comfortably large
+        // make hit area comfortably large and center image
         _openLinkButton.contentEdgeInsets = UIEdgeInsetsMake(6, 6, 6, 6);
         _openLinkButton.hidden = YES;
+        _openLinkButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
+        _openLinkButton.imageView.contentMode = UIViewContentModeScaleAspectFit;
         [self.contentView addSubview:_openLinkButton];
 
         _deleteButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -65,7 +66,6 @@
         _deleteButton.contentEdgeInsets = UIEdgeInsetsMake(4, 8, 4, 8);
         [self.contentView addSubview:_deleteButton];
 
-        // Improve tap behavior: ensure accessory views don't block touches
         self.selectionStyle = UITableViewCellSelectionStyleNone;
     }
     return self;
@@ -78,15 +78,13 @@
     self.modIconView.frame = CGRectMake(padding, padding, iconSize, iconSize);
 
     CGFloat x = CGRectGetMaxX(self.modIconView.frame) + 10;
-    CGFloat rightButtonsWidth = 160; // space for buttons
+    CGFloat rightButtonsWidth = 160;
     CGFloat contentWidth = self.contentView.bounds.size.width - x - padding - rightButtonsWidth;
 
-    // badge size (fits visually with name)
     CGFloat badgeSize = 18;
     CGFloat badgeY = padding + 2;
     self.loaderBadgeView.frame = CGRectMake(x, badgeY, badgeSize, badgeSize);
 
-    // name label placed after badge when visible
     CGFloat nameX = x;
     if (!self.loaderBadgeView.hidden) {
         nameX += badgeSize + 6;
@@ -94,7 +92,7 @@
     self.nameLabel.frame = CGRectMake(nameX, padding, contentWidth - (nameX - x), 20);
     self.descLabel.frame = CGRectMake(x, CGRectGetMaxY(self.nameLabel.frame) + 4, contentWidth, 36);
 
-    // buttons on right: delete | toggle | openLink (openLink leftmost)
+    // buttons on right: delete | toggle | openLink
     CGFloat btnW = 60;
     CGFloat spacing = 8;
     CGFloat right = self.contentView.bounds.size.width - padding;
@@ -102,7 +100,9 @@
     right = CGRectGetMinX(self.deleteButton.frame) - spacing;
     self.toggleButton.frame = CGRectMake(right - btnW, 12, btnW, 28);
     right = CGRectGetMinX(self.toggleButton.frame) - spacing;
-    self.openLinkButton.frame = CGRectMake(right - btnW, 12, btnW, 28);
+    // make openLink a bit narrower so the image keeps aspect ratio
+    CGFloat openW = 44;
+    self.openLinkButton.frame = CGRectMake(right - openW, 12, openW, 28);
 
     // Ensure interactive controls are on top
     [self.contentView bringSubviewToFront:self.deleteButton];
@@ -116,6 +116,7 @@
     self.loaderBadgeView.image = nil;
     self.loaderBadgeView.hidden = YES;
     self.openLinkButton.hidden = YES;
+    [self.openLinkButton setImage:nil forState:UIControlStateNormal];
     self.nameLabel.attributedText = nil;
     self.nameLabel.text = nil;
     self.descLabel.text = nil;
@@ -125,7 +126,7 @@
 - (void)configureWithMod:(ModItem *)mod {
     self.currentMod = mod;
 
-    // name + version as attributed string (version smaller and gray)
+    // name + version
     NSString *name = mod.displayName ?: mod.fileName;
     NSString *version = mod.version ?: @"";
     if (version.length > 0) {
@@ -170,25 +171,29 @@
         }
     }
 
-    // loader badge: choose appropriate icon from bundle (check several resource directories)
+    // loader badge
     UIImage *loaderImg = [self loaderIconForMod:mod traitCollection:self.traitCollection];
     if (loaderImg) {
+        // ensure rendering original (no tint)
+        loaderImg = [loaderImg imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
         self.loaderBadgeView.image = loaderImg;
         self.loaderBadgeView.hidden = NO;
     } else {
         self.loaderBadgeView.hidden = YES;
     }
 
-    // open link button (homepage优先, sources 次之)
+    // open link button
     if (mod.homepage.length > 0 || mod.sources.length > 0) {
         self.openLinkButton.hidden = NO;
         UIImage *globe = [UIImage systemImageNamed:@"globe"];
         if (globe) {
+            globe = [globe imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
             [self.openLinkButton setImage:globe forState:UIControlStateNormal];
             [self.openLinkButton setTitle:@"" forState:UIControlStateNormal];
         } else {
             [self.openLinkButton setTitle:@"🌐" forState:UIControlStateNormal];
         }
+        self.openLinkButton.userInteractionEnabled = YES;
     } else {
         self.openLinkButton.hidden = YES;
     }
@@ -204,7 +209,6 @@
     else if (mod.isNeoForge) base = @"neoforge";
     if (!base) return nil;
 
-    // Determine dark/light
     BOOL dark = NO;
     if (@available(iOS 12.0, *)) {
         if (traits) dark = (traits.userInterfaceStyle == UIUserInterfaceStyleDark);
@@ -216,26 +220,25 @@
 
     UIImage *img = nil;
 
-    // 1) Try to find under bundled "ModLoaderIcons" directory (this covers Natives/ModLoaderIcons packaged as resources)
-    NSString *resourceDirCandidates[] = {@"ModLoaderIcons", @"Natives/ModLoaderIcons", @"Natives/ModLoaderIcons/Resources", nil};
-    for (int i = 0; resourceDirCandidates[i] != nil && !img; i++) {
-        NSString *dir = resourceDirCandidates[i];
-        NSString *path = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:dir];
-        NSString *filePath = [path stringByAppendingPathComponent:[resourceName stringByAppendingPathExtension:@"png"]];
+    // 1) Try bundle subdirectory candidates
+    NSArray<NSString *> *resourceDirCandidates = @[@"ModLoaderIcons", @"Natives/ModLoaderIcons", @"Natives/ModLoaderIcons/Resources"];
+    for (NSString *dir in resourceDirCandidates) {
+        NSString *filePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:dir];
+        filePath = [filePath stringByAppendingPathComponent:[resourceName stringByAppendingPathExtension:@"png"]];
         if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
             img = [UIImage imageWithContentsOfFile:filePath];
             break;
         }
     }
 
-    // 2) Fallback to resource named (assets or imageNamed)
+    // 2) fallback to direct pathForResource
     if (!img) {
         NSString *fileInBundle = [[NSBundle mainBundle] pathForResource:resourceName ofType:@"png"];
         if (fileInBundle) img = [UIImage imageWithContentsOfFile:fileInBundle];
     }
-    if (!img) {
-        img = [UIImage imageNamed:resourceName]; // final fallback if asset catalog used
-    }
+    // 3) fallback to imageNamed (asset catalog)
+    if (!img) img = [UIImage imageNamed:resourceName];
+
     return img;
 }
 
@@ -254,7 +257,6 @@
 }
 
 - (void)openLinkTapped {
-    // Defensive: ensure we have a current mod and it actually has a link
     if (!self.currentMod) return;
     if (!(self.currentMod.homepage.length || self.currentMod.sources.length)) return;
     if ([self.delegate respondsToSelector:@selector(modCellDidTapOpenLink:)]) {
