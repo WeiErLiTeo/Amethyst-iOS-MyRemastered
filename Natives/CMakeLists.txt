@@ -105,9 +105,11 @@ add_executable(AngelAuraAmethyst
   JavaLauncher.m
   external/fishhook/fishhook.c
   UIKit+hook.m
+
   authenticator/BaseAuthenticator.m
   authenticator/LocalAuthenticator.m
   authenticator/MicrosoftAuthenticator.m
+
   ctxbridges/gl_bridge.m
   ctxbridges/osm_bridge.m
  
@@ -117,11 +119,13 @@ add_executable(AngelAuraAmethyst
   customcontrols/ControlLayout.m
   customcontrols/ControlSubButton.m
   customcontrols/CustomControlsUtils.m
-  customcontrols.mSPredicateUtilitiesExternal.m
+  customcontrols/NSPredicateUtilitiesExternal.m
+
   external/DBNumberedSlider/Classes/DBNumberedSlider.m
-  external.mRFileManager/NSFileManager+NRFileManager.m
+  external/NRFileManager/NSFileManager+NRFileManager.m
   external/ballpa1n/HostManager.c
   external/ballpa1n/wrapped/HostManagerBridge.m
+
   installer/FabricInstallViewController.m
   installer/ForgeInstallViewController.m
   installer/ModpackInstallViewController.m
@@ -130,9 +134,11 @@ add_executable(AngelAuraAmethyst
   installer/modpack/ModpackAPI.m
   installer/modpack/CurseForgeAPI.m
   installer/modpack/ModrinthAPI.m
+
   input/ControllerInput.m
   input/GyroInput.m
   input/KeyboardInput.m
+
   AccountListViewController.m
   AppDelegate.m
   CustomControlsViewController.m
@@ -171,24 +177,6 @@ add_executable(AngelAuraAmethyst
   input_bridge_v3.m
   ios_uikit_bridge.m
   utils.m
-  ModItem.m
-  ModService.m
-  ModTableViewCell.m
-  ModsManagerViewController.m
-  # SSZipArchive 核心文件
-  SSZipArchive.m
-  # minizip 源文件（移除加密相关文件）
-  minizip/mz_compat.c
-  minizip/mz_os.c
-  minizip/mz_os_posix.c
-  minizip/mz_strm.c
-  minizip/mz_strm_buf.c
-  minizip/mz_strm_mem.c
-  minizip/mz_strm_os_posix.c
-  minizip/mz_strm_split.c
-  minizip/mz_strm_zlib.c
-  minizip/mz_zip.c
-  minizip/mz_zip_rw.c
 )
 
 if("${CMAKE_HOST_SYSTEM_NAME}" MATCHES "Linux|^GNU$|Android")
