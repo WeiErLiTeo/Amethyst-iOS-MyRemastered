@@ -15,6 +15,8 @@ typedef void(^ModMetadataHandler)(ModItem *item, NSError * _Nullable error);
 
 @interface ModService : NSObject
 
+@property (nonatomic, assign) BOOL onlineSearchEnabled;
+
 + (instancetype)sharedService;
 
 - (void)scanModsForProfile:(NSString *)profileName completion:(ModListHandler)completion;
@@ -22,13 +24,6 @@ typedef void(^ModMetadataHandler)(ModItem *item, NSError * _Nullable error);
 - (NSString *)iconCachePathForURL:(NSString *)urlString;
 - (BOOL)toggleEnableForMod:(ModItem *)mod error:(NSError **)error;
 - (BOOL)deleteMod:(ModItem *)mod error:(NSError **)error;
-
-// Return an existing mods folder path for the given profile if found, otherwise nil.
-- (nullable NSString *)existingModsFolderForProfile:(NSString *)profileName;
-
-// Controls whether metadata fetching should prefer online search first (YES)
-// or local jar parsing first (NO). Defaults to NO.
-@property (nonatomic, assign) BOOL onlineSearchEnabled;
 
 @end
 

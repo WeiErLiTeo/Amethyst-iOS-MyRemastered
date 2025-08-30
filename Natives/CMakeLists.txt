@@ -1,19 +1,20 @@
 cmake_minimum_required(VERSION 3.6)
 project(AngelAuraAmethyst)
+
 configure_file(${CMAKE_CURRENT_LIST_DIR}/config.h.in ${CMAKE_CURRENT_LIST_DIR}/config.h)
 
 # Using our build system, cmake doesn't respect -miphoneos-version-min=14.0
 # and instead overrides it with the macOS SDK version when compiled
 # in Xcode on a Mac.
 set(CMAKE_OSX_DEPLOYMENT_TARGET 14.0)
-# 添加 -DMZ_CRYPTO_DISABLE 禁用 minizip 加密功能，解决符号缺失
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -target arm64-apple-ios -mcpu=apple-a8 -fcommon -fobjc-arc -ObjC -DZLIB_COMPAT -DMZ_CRYPTO_DISABLE -F'${CMAKE_OSX_SYSROOT}/System/Cryptexes/OS/System/Library/Frameworks'")
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -target arm64-apple-ios -mcpu=apple-a8 -fcommon -fobjc-arc -ObjC -F'${CMAKE_OSX_SYSROOT}/System/Cryptexes/OS/System/Library/Frameworks'")
 set(CMAKE_C_FLAGS_DEBUG "-funwind-tables -g")
 
 if("${CMAKE_HOST_SYSTEM_NAME}" MATCHES "Linux|^GNU$|Android")
-set(GLOBAL_LDFLAGS "-isysroot ${CMAKE_OSX_SYSROOT} -Wl,-syslibroot,${CMAKE_OSX_SYSROOT} -fuse-ld=lld")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GLOBAL_LDFLAGS}")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${GLOBAL_LDFLAGS}")
+  set(GLOBAL_LDFLAGS "-isysroot ${CMAKE_OSX_SYSROOT} -Wl,-syslibroot,${CMAKE_OSX_SYSROOT} -fuse-ld=lld")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GLOBAL_LDFLAGS}")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${GLOBAL_LDFLAGS}")
 endif()
 
 include_directories(
@@ -30,8 +31,6 @@ include_directories(
   "external/Apple"
   "external/ballpa1n"
   "external/ballpa1n/wrapped"
-  "."
-  "minizip"
 )
 
 # For cacio support library
@@ -53,6 +52,7 @@ target_link_libraries(awt_xawt
 )
 
 set(CMAKE_FRAMEWORK_PATH "${CMAKE_CURRENT_LIST_DIR}/resources/Frameworks")
+
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rpath @executable_path/Frameworks -rpath @loader_path/Frameworks")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -rpath @executable_path/Frameworks -rpath @loader_path/Frameworks")
 
@@ -105,23 +105,27 @@ add_executable(AngelAuraAmethyst
   JavaLauncher.m
   external/fishhook/fishhook.c
   UIKit+hook.m
+
   authenticator/BaseAuthenticator.m
   authenticator/LocalAuthenticator.m
   authenticator/MicrosoftAuthenticator.m
+
   ctxbridges/gl_bridge.m
   ctxbridges/osm_bridge.m
- 
+
   customcontrols/ControlButton.m
   customcontrols/ControlDrawer.m
   customcontrols/ControlJoystick.m
   customcontrols/ControlLayout.m
   customcontrols/ControlSubButton.m
   customcontrols/CustomControlsUtils.m
-  customcontrols.mSPredicateUtilitiesExternal.m
+  customcontrols/NSPredicateUtilitiesExternal.m
+
   external/DBNumberedSlider/Classes/DBNumberedSlider.m
-  external.mRFileManager/NSFileManager+NRFileManager.m
+  external/NRFileManager/NSFileManager+NRFileManager.m
   external/ballpa1n/HostManager.c
   external/ballpa1n/wrapped/HostManagerBridge.m
+
   installer/FabricInstallViewController.m
   installer/ForgeInstallViewController.m
   installer/ModpackInstallViewController.m
@@ -130,9 +134,11 @@ add_executable(AngelAuraAmethyst
   installer/modpack/ModpackAPI.m
   installer/modpack/CurseForgeAPI.m
   installer/modpack/ModrinthAPI.m
+
   input/ControllerInput.m
   input/GyroInput.m
   input/KeyboardInput.m
+
   AccountListViewController.m
   AppDelegate.m
   CustomControlsViewController.m
@@ -171,28 +177,49 @@ add_executable(AngelAuraAmethyst
   input_bridge_v3.m
   ios_uikit_bridge.m
   utils.m
+
+  # Mod-related sources (ensure implementations are compiled and linked)
   ModItem.m
   ModService.m
   ModTableViewCell.m
+  ModTableViewController.m
   ModsManagerViewController.m
-  # SSZipArchive 核心文件
-  SSZipArchive.m
-  # minizip 源文件（移除加密相关文件）
-  minizip/mz_compat.c
-  minizip/mz_os.c
-  minizip/mz_os_posix.c
-  minizip/mz_strm.c
-  minizip/mz_strm_buf.c
-  minizip/mz_strm_mem.c
-  minizip/mz_strm_os_posix.c
-  minizip/mz_strm_split.c
-  minizip/mz_strm_zlib.c
-  minizip/mz_zip.c
-  minizip/mz_zip_rw.c
 )
 
 if("${CMAKE_HOST_SYSTEM_NAME}" MATCHES "Linux|^GNU$|Android")
-target_sources(AngelAuraAmethyst PUBLIC non_darwin_utils.m)
+  target_sources(AngelAuraAmethyst PUBLIC non_darwin_utils.m)
+endif()
+
+# Option to enable minizip; default OFF to avoid build failures if zlib-ng is not present.
+option(MINIZIP_ENABLED "Enable building bundled minizip (requires zlib/zlib-ng)" OFF)
+
+# Optionally add minizip sources only if the directory exists AND MINIZIP_ENABLED is ON.
+set(MINIZIP_DIR "${CMAKE_CURRENT_LIST_DIR}/minizip")
+if(MINIZIP_ENABLED AND EXISTS "${MINIZIP_DIR}")
+  file(GLOB MINIZIP_SRCS
+    "${MINIZIP_DIR}/*.c"
+    "${MINIZIP_DIR}/*.m"
+    "${MINIZIP_DIR}/*.cpp"
+    "${MINIZIP_DIR}/*.cc"
+  )
+  if(MINIZIP_SRCS)
+    message(STATUS "Found minizip sources: ${MINIZIP_SRCS}")
+    target_sources(AngelAuraAmethyst PRIVATE ${MINIZIP_SRCS})
+    target_include_directories(AngelAuraAmethyst PRIVATE "${MINIZIP_DIR}")
+    # Link zlib if available - on macOS the library is 'z'
+    find_library(ZLIB_LIB z)
+    if(ZLIB_LIB)
+      target_link_libraries(AngelAuraAmethyst PUBLIC ${ZLIB_LIB})
+    endif()
+  else()
+    message(STATUS "minizip folder exists but no source files found.")
+  endif()
+else()
+  if(EXISTS "${MINIZIP_DIR}")
+    message(STATUS "minizip folder found but MINIZIP_ENABLED is OFF — skipping compilation.")
+  else()
+    message(STATUS "minizip folder not found, skipping minizip compilation.")
+  endif()
 endif()
 
 target_link_libraries(AngelAuraAmethyst
@@ -216,9 +243,7 @@ target_link_libraries(AngelAuraAmethyst
   "-framework UnzipKit"
   "-framework WebKit"
   "-weak_framework SafariServices"
-  -lz  # 链接系统 zlib 库
 )
-
 set_target_properties(AngelAuraAmethyst PROPERTIES
   MACOSX_BUNDLE TRUE
   MACOSX_FRAMEWORK_IDENTIFIER org.cmake.ExecutableTarget

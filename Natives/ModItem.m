@@ -10,64 +10,48 @@
 @implementation ModItem
 
 - (instancetype)initWithFilePath:(NSString *)path {
-    self = [super init];
-    if (!self) return nil;
-    _filePath = [path copy];
-    _fileName = [_filePath lastPathComponent];
-    [self refreshDisabledFlag];
+    if (self = [super init]) {
+        _filePath = [path copy];
+        _fileName = [[path lastPathComponent] copy];
+        [self refreshDisabledFlag];
+        NSString *name = [_fileName copy];
 
-    // Derive a friendly display name from filename
-    NSString *name = _fileName;
-    // Remove known suffixes
-    name = [name stringByReplacingOccurrencesOfString:@".jar.disabled" withString:@""];
-    name = [name stringByReplacingOccurrencesOfString:@".jar" withString:@""];
-    name = [name stringByReplacingOccurrencesOfString:@".disabled" withString:@""];
-    // Replace underscores with spaces and remove file extension remnants
-    name = [name stringByReplacingOccurrencesOfString:@"_" withString:@" "];
-
-    // Try to strip trailing version-like tokens (basic heuristic)
-    NSArray<NSString *> *parts = [name componentsSeparatedByString:@"-"];
-    if (parts.count > 1) {
-        // If last part contains digits, drop it
-        NSString *last = parts.lastObject;
-        NSCharacterSet *digits = [NSCharacterSet decimalDigitCharacterSet];
-        BOOL hasDigit = ([last rangeOfCharacterFromSet:digits].location != NSNotFound);
-        if (hasDigit) {
-            parts = [parts subarrayWithRange:NSMakeRange(0, parts.count-1)];
-            name = [parts componentsJoinedByString:@"-"];
+        // handle ".disabled" suffix (may be ".jar.disabled" or ".disabled")
+        if ([name hasSuffix:@".disabled"]) {
+            name = [name substringToIndex:name.length - [@".disabled" length]];
         }
+        // remove .jar extension if present
+        if ([name hasSuffix:@".jar"]) {
+            name = [name stringByDeletingPathExtension];
+        }
+        // fallback displayName
+        _displayName = name.length ? name : _fileName;
+        // ensure defaults for metadata
+        _modDescription = _modDescription ?: @"";
+        _iconURL = _iconURL ?: @"";
+        _fileSHA1 = _fileSHA1 ?: nil;
+        _version = _version ?: nil;
+        _homepage = _homepage ?: nil;
+        _sources = _sources ?: nil;
+        _isFabric = NO;
+        _isForge = NO;
+        _isNeoForge = NO;
     }
-
-    // Trim
-    name = [name stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    _displayName = name.length ? name : _fileName;
-
-    // defaults
-    _modDescription = nil;
-    _fileSHA1 = nil;
-    _iconURL = nil;
-    _iconPathInJar = nil;
-    _homepage = nil;
-    _sources = nil;
-    _version = nil;
-    _isFabric = NO;
-    _isForge = NO;
-    _isNeoForge = NO;
-
     return self;
 }
 
-- (NSString *)basename {
-    NSString *n = self.fileName;
-    n = [n stringByReplacingOccurrencesOfString:@".jar.disabled" withString:@""];
-    n = [n stringByReplacingOccurrencesOfString:@".jar" withString:@""];
-    n = [n stringByReplacingOccurrencesOfString:@".disabled" withString:@""];
-    return n;
+- (void)refreshDisabledFlag {
+    _disabled = [_fileName.lowercaseString hasSuffix:@".disabled"];
 }
 
-- (void)refreshDisabledFlag {
-    NSString *fn = self.fileName.lowercaseString;
-    _disabled = ([fn containsString:@".disabled"] || [fn hasSuffix:@".disabled"] || [fn hasSuffix:@".jar.disabled"]);
+- (NSString *)basename {
+    NSString *name = _fileName ?: @"";
+    if ([name hasSuffix:@".disabled"]) {
+        name = [name substringToIndex:name.length - [@".disabled" length]];
+    }
+    // strip .jar if still present
+    if ([name hasSuffix:@".jar"]) name = [name stringByDeletingPathExtension];
+    return name;
 }
 
 @end
