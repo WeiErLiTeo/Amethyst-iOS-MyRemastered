@@ -3,8 +3,7 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
-//
-//  Switched to UnzipKit for reading files inside jar (zip) archives.
+//  Updated to use UnzipKit API (UZKArchive/initWithPath:, extractDataFromFile:, listFileInfo:)
 //
 
 #import "ModService.h"
@@ -12,7 +11,7 @@
 #import <UIKit/UIKit.h>
 #import "PLProfiles.h"
 #import "ModItem.h"
-#import "UnzipKit.h" // 使用本地头引用（仓库路径：Natives/external/UnzipKit/UnzipKit.h）
+#import "UnzipKit.h" // 本仓库里有 Natives/external/UnzipKit/UnzipKit.h
 
 @implementation ModService
 
@@ -62,12 +61,13 @@
 - (nullable NSData *)readFileFromJar:(NSString *)jarPath entryName:(NSString *)entryName {
     if (!jarPath || !entryName) return nil;
     NSError *err = nil;
-    UZKArchive *archive = [UZKArchive archiveWithPath:jarPath error:&err];
+    // Use the supported init API from UZKArchive
+    UZKArchive *archive = [[UZKArchive alloc] initWithPath:jarPath error:&err];
     if (!archive || err) {
         return nil;
     }
 
-    // Try exact entryName first
+    // Try several name variants that may appear in jars
     NSArray<NSString *> *tryList = @[
         entryName,
         [entryName stringByReplacingOccurrencesOfString:@"\\" withString:@"/"],
@@ -79,24 +79,25 @@
     for (NSString *tryEntry in tryList) {
         if (!tryEntry || tryEntry.length == 0) continue;
         NSError *e = nil;
-        NSData *data = [archive dataOfEntry:tryEntry error:&e];
+        // Use the documented API: extractDataFromFile:error:
+        NSData *data = [archive extractDataFromFile:tryEntry error:&e];
         if (data && data.length > 0) return data;
-        // ignore error and continue trying other variants
+        // Sometimes the API expects no leading slash; we already tried both forms above
     }
 
-    // If still not found, enumerate entries and try case-insensitive or basename match
+    // If above attempts failed, enumerate file info objects and match by case-insensitive or basename
     NSError *enumErr = nil;
-    NSArray<UZKCentralDirectoryEntry *> *entries = [archive entriesWithError:&enumErr];
-    if (!entries) return nil;
+    NSArray<UZKFileInfo *> *infos = [archive listFileInfo:&enumErr];
+    if (!infos || infos.count == 0) return nil;
 
-    for (UZKCentralDirectoryEntry *entry in entries) {
-        NSString *entryPath = entry.name ?: @"";
-        NSString *normalized = [entryPath stringByReplacingOccurrencesOfString:@"\\" withString:@"/"];
+    for (UZKFileInfo *info in infos) {
+        NSString *fname = info.filename ?: @"";
+        NSString *normalized = [fname stringByReplacingOccurrencesOfString:@"\\" withString:@"/"];
         if ([normalized caseInsensitiveCompare:entryName] == NSOrderedSame ||
             [[normalized lastPathComponent] caseInsensitiveCompare:entryName] == NSOrderedSame ||
             [[normalized lastPathComponent] isEqualToString:entryName]) {
             NSError *e = nil;
-            NSData *data = [archive dataOfEntry:entryPath error:&e];
+            NSData *data = [archive extractDataFromFile:fname error:&e];
             if (data && data.length > 0) return data;
         }
     }
@@ -121,7 +122,6 @@
             }
             NSString *safeBase = [[baseName stringByReplacingOccurrencesOfString:@" " withString:@"_"] stringByReplacingOccurrencesOfString:@"/" withString:@"_"];
             NSString *fname = [NSString stringWithFormat:@"%@_%@", safeBase, [cand lastPathComponent]];
-            // ensure extension
             if (![fname.pathExtension length]) {
                 fname = [fname stringByAppendingPathExtension:(isPNG ? @"png":@"dat")];
             }
