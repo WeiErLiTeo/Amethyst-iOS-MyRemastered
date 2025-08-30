@@ -1,10 +1,9 @@
 //
-//  ModsManagerViewController.m
-//  AmethystMods
+// ModsManagerViewController.m
+// AmethystMods
 //
-//  Created by Copilot on 2025-08-22.
-//  Revised to ensure thread-safety, UI updates on main thread, safe weak/strong captures,
-//  improved layout using Auto Layout, pull-to-refresh and empty-state handling.
+// Created by Copilot (adjusted) on 2025-08-22.
+// Revised: add profileName handling and robust UI/data updates.
 //
 
 #import "ModsManagerViewController.h"
@@ -92,7 +91,7 @@
     [self refreshList];
 }
 
-#pragma mark - Data loading
+#pragma mark - Loading
 
 - (void)setLoading:(BOOL)loading {
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -108,11 +107,12 @@
 - (void)refreshList {
     [self setLoading:YES];
     __weak typeof(self) weakSelf = self;
-    [[ModService sharedService] scanModsForProfile:self.profileName completion:^(NSArray<ModItem *> *mods) {
+    NSString *profile = self.profileName ?: @"default";
+    [[ModService sharedService] scanModsForProfile:profile completion:^(NSArray<ModItem *> *mods) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
         if (!strongSelf) return;
 
-        // Replace data source atomically on main thread
+        // Update UI on main
         dispatch_async(dispatch_get_main_queue(), ^{
             [strongSelf.mods removeAllObjects];
             if (mods.count > 0) {
@@ -125,22 +125,18 @@
             [strongSelf setLoading:NO];
         });
 
-        // Fetch metadata for each mod (background). Update rows as metadata arrives.
+        // Fetch metadata for each mod to fill details asynchronously
         for (ModItem *m in mods) {
             [[ModService sharedService] fetchMetadataForMod:m completion:^(ModItem *item, NSError * _Nullable error) {
                 __strong typeof(weakSelf) ss = weakSelf;
                 if (!ss) return;
-                // Find the mod by filePath (unique)
                 NSUInteger idx = [ss.mods indexOfObjectPassingTest:^BOOL(ModItem * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
                     return [obj.filePath isEqualToString:item.filePath];
                 }];
                 if (idx != NSNotFound) {
                     dispatch_async(dispatch_get_main_queue(), ^{
-                        NSIndexPath *ip = [NSIndexPath indexPathForRow:idx inSection:0];
-                        // Bound-check in case the data changed
-                        if (ip.row < ss.mods.count) {
-                            // Update the stored ModItem instance with any new metadata fields
-                            ModItem *stored = ss.mods[ip.row];
+                        if (idx < ss.mods.count) {
+                            ModItem *stored = ss.mods[idx];
                             stored.displayName = item.displayName ?: stored.displayName;
                             stored.modDescription = item.modDescription ?: stored.modDescription;
                             stored.iconURL = item.iconURL ?: stored.iconURL;
@@ -150,7 +146,7 @@
                             stored.isFabric = item.isFabric;
                             stored.isForge = item.isForge;
                             stored.isNeoForge = item.isNeoForge;
-                            [ss.tableView reloadRowsAtIndexPaths:@[ip] withRowAnimation:UITableViewRowAnimationNone];
+                            [ss.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:idx inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
                         }
                     });
                 }
@@ -175,7 +171,7 @@
     if (m) {
         [cell configureWithMod:m];
     } else {
-        // Defensive: clear cell if out-of-range
+        // Defensive: create an empty placeholder ModItem if out-of-range
         [cell configureWithMod:[[ModItem alloc] initWithFilePath:@""]];
     }
     return cell;
@@ -204,7 +200,6 @@
                 [strongSelf presentViewController:errAc animated:YES completion:nil];
             });
         } else {
-            // Update UI: reload the affected row (or full list)
             dispatch_async(dispatch_get_main_queue(), ^{
                 [strongSelf refreshList];
             });
@@ -232,14 +227,12 @@
                 [strongSelf presentViewController:errAc animated:YES completion:nil];
             });
         } else {
-            // Remove locally and update table
             dispatch_async(dispatch_get_main_queue(), ^{
                 if ((NSUInteger)ip.row < strongSelf.mods.count) {
                     [strongSelf.mods removeObjectAtIndex:ip.row];
                     [strongSelf.tableView deleteRowsAtIndexPaths:@[ip] withRowAnimation:UITableViewRowAnimationAutomatic];
                     strongSelf.emptyLabel.hidden = (strongSelf.mods.count != 0);
                 } else {
-                    // Fallback: refresh entire list
                     [strongSelf refreshList];
                 }
             });
@@ -248,7 +241,7 @@
     [self presentViewController:ac animated:YES completion:nil];
 }
 
-#pragma mark - Table editing (swipe to delete)
+#pragma mark - Table editing
 
 - (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
     return YES;
