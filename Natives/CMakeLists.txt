@@ -184,8 +184,6 @@ add_executable(AngelAuraAmethyst
   ModTableViewCell.m
   ModTableViewController.m
   ModsManagerViewController.m
-
-  ZeroTierBridge.m
 )
 
 if("${CMAKE_HOST_SYSTEM_NAME}" MATCHES "Linux|^GNU$|Android")
