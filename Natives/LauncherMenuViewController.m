@@ -5,7 +5,6 @@
 #import "LauncherNavigationController.h"
 #import "LauncherMenuViewController.h"
 #import "LauncherNewsViewController.h"
-#import "LauncherOnlineViewController.h"
 #import "LauncherPreferences.h"
 #import "LauncherPreferencesViewController.h"
 #import "LauncherProfilesViewController.h"
@@ -62,7 +61,6 @@
     
     self.options = @[
         [LauncherMenuCustomItem vcClass:LauncherNewsViewController.class],
-        [LauncherMenuCustomItem vcClass:LauncherOnlineViewController.class],
         [LauncherMenuCustomItem vcClass:LauncherProfilesViewController.class],
         [LauncherMenuCustomItem vcClass:LauncherPreferencesViewController.class],
     ].mutableCopy;
