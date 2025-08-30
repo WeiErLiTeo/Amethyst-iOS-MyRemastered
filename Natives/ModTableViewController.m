@@ -3,8 +3,7 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
-//  Fixed: show "上网搜索" switch reliably by embedding label+switch into a custom view
-//  and ensured refresh logic robustly rescans mods (including a fallback directory search).
+//  Updated: ensure 上网搜索 switch is placed directly left of refresh and visible reliably.
 //
 
 #import "ModTableViewController.h"
@@ -25,16 +24,16 @@
     [self.tableView registerClass:[ModTableViewCell class] forCellReuseIdentifier:@"ModCell"];
     self.tableView.rowHeight = 76;
 
-    // Create a compact container for label + switch so the "上网搜索" control is always visible.
-    UIView *container = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 120, 32)];
-    UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 64, 32)];
+    // Create a container for label + switch and make it compact but wide enough
+    UIView *container = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 140, 32)];
+    UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 78, 32)];
     label.text = @"上网搜索";
     label.font = [UIFont systemFontOfSize:13];
     label.textAlignment = NSTextAlignmentRight;
     label.autoresizingMask = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleRightMargin;
     [container addSubview:label];
 
-    self.onlineSearchSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(70, 4, 0, 0)];
+    self.onlineSearchSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(86, 4, 0, 0)];
     self.onlineSearchSwitch.on = [ModService sharedService].onlineSearchEnabled;
     [self.onlineSearchSwitch addTarget:self action:@selector(toggleOnlineSearch:) forControlEvents:UIControlEventValueChanged];
     self.onlineSearchSwitch.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
@@ -42,29 +41,31 @@
 
     UIBarButtonItem *switchContainerItem = [[UIBarButtonItem alloc] initWithCustomView:container];
 
-    // Refresh button (rightmost)
+    // Refresh button: rightmost
     UIBarButtonItem *refresh = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshTapped)];
 
-    // Set items: refresh rightmost, switch container left of it
+    // Put refresh as rightmost, switch container to its left
     self.navigationItem.rightBarButtonItems = @[refresh, switchContainerItem];
 
+    // Ensure switch reflects current state when view appears
     [self refreshTapped];
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    self.onlineSearchSwitch.on = [ModService sharedService].onlineSearchEnabled;
 }
 
 - (void)toggleOnlineSearch:(UISwitch *)sw {
     [ModService sharedService].onlineSearchEnabled = sw.isOn;
-    // Immediately refresh so online search state takes effect
     [self refreshTapped];
 }
 
 - (void)refreshTapped {
-    // scanModsForProfile will use "default" if profileName is nil; do a robust rescan
     [[ModService sharedService] scanModsForProfile:self.profileName completion:^(NSArray<ModItem *> *mods) {
-        // If scan returns empty, try a broader fallback scan implemented in ModService (it already tries many locations)
         self.mods = mods ?: @[];
         [self.tableView reloadData];
 
-        // Async fetch metadata for each mod, update rows when done
         for (NSInteger i = 0; i < self.mods.count; i++) {
             ModItem *m = self.mods[i];
             [[ModService sharedService] fetchMetadataForMod:m completion:^(ModItem *item, NSError * _Nullable error) {
@@ -76,7 +77,6 @@
                         NSIndexPath *path = [NSIndexPath indexPathForRow:idx inSection:0];
                         [self.tableView reloadRowsAtIndexPaths:@[path] withRowAnimation:UITableViewRowAnimationNone];
                     } else {
-                        // nothing matched; do a full reload as a fallback
                         [self.tableView reloadData];
                     }
                 });
@@ -146,7 +146,6 @@
     ModItem *m = self.mods[ip.row];
     NSString *urlStr = m.homepage.length ? m.homepage : (m.sources.length ? m.sources : nil);
     if (!urlStr) return;
-    // Ensure URL has a scheme
     NSURL *u = [NSURL URLWithString:urlStr];
     if (!u || !u.scheme) {
         NSString *withScheme = [NSString stringWithFormat:@"https://%@", urlStr];

@@ -3,7 +3,7 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
-//  Updated to show Fabric/Forge/NeoForge loader badges and external link button.
+//  Updated: supports multiple loader badges (fabric/forge/neoforge).
 //
 
 #import <UIKit/UIKit.h>
@@ -20,7 +20,11 @@ NS_ASSUME_NONNULL_BEGIN
 @interface ModTableViewCell : UITableViewCell
 
 @property (nonatomic, strong) UIImageView *modIconView;
-@property (nonatomic, strong) UIImageView *loaderBadgeView; // Fabric/Forge/NeoForge 小徽章（根据深/浅色选择资源）
+// Up to three loader badges (fabric, forge, neoforge) shown left-to-right
+@property (nonatomic, strong) UIImageView *loaderBadgeView1;
+@property (nonatomic, strong) UIImageView *loaderBadgeView2;
+@property (nonatomic, strong) UIImageView *loaderBadgeView3;
+
 @property (nonatomic, strong) UILabel *nameLabel;
 @property (nonatomic, strong) UILabel *descLabel;
 @property (nonatomic, strong) UIButton *toggleButton;

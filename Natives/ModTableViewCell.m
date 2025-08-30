@@ -3,7 +3,7 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
-//  Updated: improved loader-badge loading, force original rendering, fix open-link hit area & aspect.
+//  Updated: multi-badge support, original rendering, fixed layout & hit areas.
 //
 
 #import "ModTableViewCell.h"
@@ -24,11 +24,20 @@
         _modIconView.contentMode = UIViewContentModeScaleAspectFill;
         [self.contentView addSubview:_modIconView];
 
-        _loaderBadgeView = [[UIImageView alloc] initWithFrame:CGRectZero];
-        _loaderBadgeView.contentMode = UIViewContentModeScaleAspectFit;
-        _loaderBadgeView.hidden = YES;
-        _loaderBadgeView.userInteractionEnabled = NO; // decorative
-        [self.contentView addSubview:_loaderBadgeView];
+        _loaderBadgeView1 = [[UIImageView alloc] initWithFrame:CGRectZero];
+        _loaderBadgeView1.contentMode = UIViewContentModeScaleAspectFit;
+        _loaderBadgeView1.hidden = YES;
+        [self.contentView addSubview:_loaderBadgeView1];
+
+        _loaderBadgeView2 = [[UIImageView alloc] initWithFrame:CGRectZero];
+        _loaderBadgeView2.contentMode = UIViewContentModeScaleAspectFit;
+        _loaderBadgeView2.hidden = YES;
+        [self.contentView addSubview:_loaderBadgeView2];
+
+        _loaderBadgeView3 = [[UIImageView alloc] initWithFrame:CGRectZero];
+        _loaderBadgeView3.contentMode = UIViewContentModeScaleAspectFit;
+        _loaderBadgeView3.hidden = YES;
+        [self.contentView addSubview:_loaderBadgeView3];
 
         _nameLabel = [[UILabel alloc] initWithFrame:CGRectZero];
         _nameLabel.font = [UIFont boldSystemFontOfSize:15];
@@ -51,7 +60,6 @@
         _openLinkButton.tintColor = [UIColor systemBlueColor];
         _openLinkButton.titleLabel.font = [UIFont systemFontOfSize:14];
         [_openLinkButton addTarget:self action:@selector(openLinkTapped) forControlEvents:UIControlEventTouchUpInside];
-        // make hit area comfortably large and center image
         _openLinkButton.contentEdgeInsets = UIEdgeInsetsMake(6, 6, 6, 6);
         _openLinkButton.hidden = YES;
         _openLinkButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
@@ -78,16 +86,30 @@
     self.modIconView.frame = CGRectMake(padding, padding, iconSize, iconSize);
 
     CGFloat x = CGRectGetMaxX(self.modIconView.frame) + 10;
-    CGFloat rightButtonsWidth = 160;
+    CGFloat rightButtonsWidth = 170;
     CGFloat contentWidth = self.contentView.bounds.size.width - x - padding - rightButtonsWidth;
 
+    // badges: up to three small icons horizontally
     CGFloat badgeSize = 18;
     CGFloat badgeY = padding + 2;
-    self.loaderBadgeView.frame = CGRectMake(x, badgeY, badgeSize, badgeSize);
+    CGFloat badgeX = x;
+    UIImageView *badges[3] = {self.loaderBadgeView1, self.loaderBadgeView2, self.loaderBadgeView3};
+    for (int i = 0; i < 3; i++) {
+        UIImageView *bv = badges[i];
+        bv.frame = CGRectMake(badgeX, badgeY, badgeSize, badgeSize);
+        badgeX += badgeSize + 6;
+    }
 
     CGFloat nameX = x;
-    if (!self.loaderBadgeView.hidden) {
-        nameX += badgeSize + 6;
+    // if first badge visible, shift nameX to after badges area for alignment
+    if (!self.loaderBadgeView1.hidden) {
+        // compute width used by visible badges
+        CGFloat used = 0;
+        for (int i = 0; i < 3; i++) {
+            UIImageView *bv = badges[i];
+            if (!bv.hidden) used += badgeSize + 6;
+        }
+        nameX += used;
     }
     self.nameLabel.frame = CGRectMake(nameX, padding, contentWidth - (nameX - x), 20);
     self.descLabel.frame = CGRectMake(x, CGRectGetMaxY(self.nameLabel.frame) + 4, contentWidth, 36);
@@ -100,11 +122,10 @@
     right = CGRectGetMinX(self.deleteButton.frame) - spacing;
     self.toggleButton.frame = CGRectMake(right - btnW, 12, btnW, 28);
     right = CGRectGetMinX(self.toggleButton.frame) - spacing;
-    // make openLink a bit narrower so the image keeps aspect ratio
     CGFloat openW = 44;
     self.openLinkButton.frame = CGRectMake(right - openW, 12, openW, 28);
 
-    // Ensure interactive controls are on top
+    // Bring interactive controls to front
     [self.contentView bringSubviewToFront:self.deleteButton];
     [self.contentView bringSubviewToFront:self.toggleButton];
     [self.contentView bringSubviewToFront:self.openLinkButton];
@@ -113,8 +134,9 @@
 - (void)prepareForReuse {
     [super prepareForReuse];
     self.modIconView.image = nil;
-    self.loaderBadgeView.image = nil;
-    self.loaderBadgeView.hidden = YES;
+    self.loaderBadgeView1.image = nil; self.loaderBadgeView1.hidden = YES;
+    self.loaderBadgeView2.image = nil; self.loaderBadgeView2.hidden = YES;
+    self.loaderBadgeView3.image = nil; self.loaderBadgeView3.hidden = YES;
     self.openLinkButton.hidden = YES;
     [self.openLinkButton setImage:nil forState:UIControlStateNormal];
     self.nameLabel.attributedText = nil;
@@ -145,7 +167,7 @@
     NSString *toggleTitle = mod.disabled ? @"启用" : @"禁用";
     [self.toggleButton setTitle:toggleTitle forState:UIControlStateNormal];
 
-    // icon (mod icon)
+    // mod icon (as before)
     UIImage *placeholder = [UIImage systemImageNamed:@"cube.box"];
     self.modIconView.image = placeholder;
     if (mod.iconURL.length > 0) {
@@ -171,15 +193,20 @@
         }
     }
 
-    // loader badge
-    UIImage *loaderImg = [self loaderIconForMod:mod traitCollection:self.traitCollection];
-    if (loaderImg) {
-        // ensure rendering original (no tint)
-        loaderImg = [loaderImg imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
-        self.loaderBadgeView.image = loaderImg;
-        self.loaderBadgeView.hidden = NO;
-    } else {
-        self.loaderBadgeView.hidden = YES;
+    // loader badges: try to show up to three icons: Fabric, Forge, NeoForge (in that order)
+    NSArray<UIImage *> *badgeImgs = [self loaderIconsForMod:mod traitCollection:self.traitCollection];
+    // assign to available badge views
+    NSArray<UIImageView *> *badgeViews = @[self.loaderBadgeView1, self.loaderBadgeView2, self.loaderBadgeView3];
+    for (NSUInteger i = 0; i < badgeViews.count; i++) {
+        UIImageView *bv = badgeViews[i];
+        if (i < badgeImgs.count && badgeImgs[i]) {
+            UIImage *orig = [badgeImgs[i] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+            bv.image = orig;
+            bv.hidden = NO;
+        } else {
+            bv.image = nil;
+            bv.hidden = YES;
+        }
     }
 
     // open link button
@@ -199,47 +226,56 @@
     }
 }
 
-#pragma mark - Helper: load loader icon according to mod type and current interface style
+#pragma mark - loader icon loader
 
-- (UIImage *)loaderIconForMod:(ModItem *)mod traitCollection:(UITraitCollection *)traits {
-    if (!mod) return nil;
-    NSString *base = nil;
-    if (mod.isFabric) base = @"fabric";
-    else if (mod.isForge) base = @"forge";
-    else if (mod.isNeoForge) base = @"neoforge";
-    if (!base) return nil;
+- (NSArray<UIImage *> *)loaderIconsForMod:(ModItem *)mod traitCollection:(UITraitCollection *)traits {
+    if (!mod) return @[];
 
-    BOOL dark = NO;
-    if (@available(iOS 12.0, *)) {
-        if (traits) dark = (traits.userInterfaceStyle == UIUserInterfaceStyleDark);
-        else dark = ([UIScreen mainScreen].traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark);
-    }
+    NSMutableArray<UIImage *> *out = [NSMutableArray array];
 
-    NSString *suffix = dark ? @"dark" : @"light";
-    NSString *resourceName = [NSString stringWithFormat:@"%@_%@", base, suffix]; // e.g. fabric_dark
-
-    UIImage *img = nil;
-
-    // 1) Try bundle subdirectory candidates
-    NSArray<NSString *> *resourceDirCandidates = @[@"ModLoaderIcons", @"Natives/ModLoaderIcons", @"Natives/ModLoaderIcons/Resources"];
-    for (NSString *dir in resourceDirCandidates) {
-        NSString *filePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:dir];
-        filePath = [filePath stringByAppendingPathComponent:[resourceName stringByAppendingPathExtension:@"png"]];
-        if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
-            img = [UIImage imageWithContentsOfFile:filePath];
-            break;
+    // Helper to load image by base name (fabric/forge/neoforge)
+    __weak typeof(self) wself = self;
+    UIImage *(^loadImage)(NSString *) = ^UIImage *(NSString *base) {
+        if (!base) return nil;
+        NSString *suffix = @"light";
+        if (@available(iOS 12.0, *)) {
+            if (traits) suffix = (traits.userInterfaceStyle == UIUserInterfaceStyleDark) ? @"dark" : @"light";
+            else suffix = ([UIScreen mainScreen].traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) ? @"dark":@"light";
         }
+        NSString *resourceName = [NSString stringWithFormat:@"%@_%@", base, suffix];
+        UIImage *img = nil;
+        NSArray<NSString *> *resourceDirCandidates = @[@"ModLoaderIcons", @"Natives/ModLoaderIcons", @"Natives/ModLoaderIcons/Resources"];
+        for (NSString *dir in resourceDirCandidates) {
+            NSString *filePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:dir];
+            filePath = [filePath stringByAppendingPathComponent:[resourceName stringByAppendingPathExtension:@"png"]];
+            if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
+                img = [UIImage imageWithContentsOfFile:filePath];
+                if (img) break;
+            }
+        }
+        if (!img) {
+            NSString *fileInBundle = [[NSBundle mainBundle] pathForResource:resourceName ofType:@"png"];
+            if (fileInBundle) img = [UIImage imageWithContentsOfFile:fileInBundle];
+        }
+        if (!img) img = [UIImage imageNamed:resourceName];
+        return img;
+    };
+
+    // Always try to add in order Fabric, Forge, NeoForge if the mod supports them
+    if (mod.isFabric) {
+        UIImage *i = loadImage(@"fabric");
+        if (i) [out addObject:i];
+    }
+    if (mod.isForge) {
+        UIImage *i = loadImage(@"forge");
+        if (i) [out addObject:i];
+    }
+    if (mod.isNeoForge) {
+        UIImage *i = loadImage(@"neoforge");
+        if (i) [out addObject:i];
     }
 
-    // 2) fallback to direct pathForResource
-    if (!img) {
-        NSString *fileInBundle = [[NSBundle mainBundle] pathForResource:resourceName ofType:@"png"];
-        if (fileInBundle) img = [UIImage imageWithContentsOfFile:fileInBundle];
-    }
-    // 3) fallback to imageNamed (asset catalog)
-    if (!img) img = [UIImage imageNamed:resourceName];
-
-    return img;
+    return out;
 }
 
 #pragma mark - Actions
