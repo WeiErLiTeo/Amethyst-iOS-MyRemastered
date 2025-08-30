@@ -12,7 +12,7 @@
 #import <UIKit/UIKit.h>
 #import "PLProfiles.h"
 #import "ModItem.h"
-#import <UnzipKit/UnzipKit.h>
+#import "UnzipKit.h" // 使用本地头引用（仓库路径：Natives/external/UnzipKit/UnzipKit.h）
 
 @implementation ModService
 
