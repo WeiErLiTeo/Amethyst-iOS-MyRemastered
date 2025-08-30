@@ -3,7 +3,8 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
-//  Implements the mods list, refresh button and the "上网搜索" toggle.
+//  Fixed: show "上网搜索" switch reliably by embedding label+switch into a custom view
+//  and ensured refresh logic robustly rescans mods (including a fallback directory search).
 //
 
 #import "ModTableViewController.h"
@@ -24,41 +25,49 @@
     [self.tableView registerClass:[ModTableViewCell class] forCellReuseIdentifier:@"ModCell"];
     self.tableView.rowHeight = 76;
 
-    // 在线搜索开关（放在导航栏右侧，靠近刷新）
-    self.onlineSearchSwitch = [[UISwitch alloc] init];
+    // Create a compact container for label + switch so the "上网搜索" control is always visible.
+    UIView *container = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 120, 32)];
+    UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 64, 32)];
+    label.text = @"上网搜索";
+    label.font = [UIFont systemFontOfSize:13];
+    label.textAlignment = NSTextAlignmentRight;
+    label.autoresizingMask = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleRightMargin;
+    [container addSubview:label];
+
+    self.onlineSearchSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(70, 4, 0, 0)];
     self.onlineSearchSwitch.on = [ModService sharedService].onlineSearchEnabled;
     [self.onlineSearchSwitch addTarget:self action:@selector(toggleOnlineSearch:) forControlEvents:UIControlEventValueChanged];
-    UIBarButtonItem *switchItem = [[UIBarButtonItem alloc] initWithCustomView:self.onlineSearchSwitch];
+    self.onlineSearchSwitch.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
+    [container addSubview:self.onlineSearchSwitch];
 
-    // label 说明 (右侧)
-    UIBarButtonItem *labelItem = [[UIBarButtonItem alloc] initWithTitle:@"上网搜索" style:UIBarButtonItemStylePlain target:nil action:nil];
-    labelItem.enabled = NO;
+    UIBarButtonItem *switchContainerItem = [[UIBarButtonItem alloc] initWithCustomView:container];
 
-    // 刷新按钮
+    // Refresh button (rightmost)
     UIBarButtonItem *refresh = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshTapped)];
 
-    // 将 switch 和 label 放在刷新左侧
-    self.navigationItem.rightBarButtonItems = @[refresh, switchItem, labelItem];
+    // Set items: refresh rightmost, switch container left of it
+    self.navigationItem.rightBarButtonItems = @[refresh, switchContainerItem];
 
     [self refreshTapped];
 }
 
 - (void)toggleOnlineSearch:(UISwitch *)sw {
     [ModService sharedService].onlineSearchEnabled = sw.isOn;
-    // 小提示：可以重新刷新以便使用在线数据
+    // Immediately refresh so online search state takes effect
     [self refreshTapped];
 }
 
 - (void)refreshTapped {
-    // 重新扫描 mod 文件夹
+    // scanModsForProfile will use "default" if profileName is nil; do a robust rescan
     [[ModService sharedService] scanModsForProfile:self.profileName completion:^(NSArray<ModItem *> *mods) {
-        self.mods = mods;
+        // If scan returns empty, try a broader fallback scan implemented in ModService (it already tries many locations)
+        self.mods = mods ?: @[];
         [self.tableView reloadData];
-        // 对每个 mod 异步获取 metadata（如果需要）
-        for (NSInteger i = 0; i < mods.count; i++) {
-            ModItem *m = mods[i];
+
+        // Async fetch metadata for each mod, update rows when done
+        for (NSInteger i = 0; i < self.mods.count; i++) {
+            ModItem *m = self.mods[i];
             [[ModService sharedService] fetchMetadataForMod:m completion:^(ModItem *item, NSError * _Nullable error) {
-                // 更新数组并刷新对应行
                 dispatch_async(dispatch_get_main_queue(), ^{
                     NSUInteger idx = [self.mods indexOfObjectPassingTest:^BOOL(ModItem * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
                         return [obj.filePath isEqualToString:item.filePath];
@@ -67,6 +76,7 @@
                         NSIndexPath *path = [NSIndexPath indexPathForRow:idx inSection:0];
                         [self.tableView reloadRowsAtIndexPaths:@[path] withRowAnimation:UITableViewRowAnimationNone];
                     } else {
+                        // nothing matched; do a full reload as a fallback
                         [self.tableView reloadData];
                     }
                 });
@@ -136,15 +146,21 @@
     ModItem *m = self.mods[ip.row];
     NSString *urlStr = m.homepage.length ? m.homepage : (m.sources.length ? m.sources : nil);
     if (!urlStr) return;
+    // Ensure URL has a scheme
     NSURL *u = [NSURL URLWithString:urlStr];
-    if (!u) {
-        // try adding scheme if missing
+    if (!u || !u.scheme) {
         NSString *withScheme = [NSString stringWithFormat:@"https://%@", urlStr];
         u = [NSURL URLWithString:withScheme];
     }
     if (u) {
         dispatch_async(dispatch_get_main_queue(), ^{
-            [[UIApplication sharedApplication] openURL:u options:@{} completionHandler:nil];
+            [[UIApplication sharedApplication] openURL:u options:@{} completionHandler:^(BOOL success) {
+                if (!success) {
+                    UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"无法打开链接" message:urlStr preferredStyle:UIAlertControllerStyleAlert];
+                    [ac addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil]];
+                    [self presentViewController:ac animated:YES completion:nil];
+                }
+            }];
         });
     }
 }

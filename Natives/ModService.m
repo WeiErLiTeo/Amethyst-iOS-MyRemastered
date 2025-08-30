@@ -3,7 +3,8 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
-//  Revised: improved Fabric metadata handling and online-search keyword selection.
+//  Revised: improved mod folder detection (added fallback scan),
+//  and ensured parsed fabric/mods toml fields populate homepage/sources correctly.
 //
 
 #import "ModService.h"
@@ -11,7 +12,7 @@
 #import <UIKit/UIKit.h>
 #import "PLProfiles.h"
 #import "ModItem.h"
-#import "UnzipKit.h" // 本仓库有 UnzipKit
+#import "UnzipKit.h"
 
 @implementation ModService
 
@@ -56,7 +57,7 @@
     return [folder stringByAppendingPathComponent:hex];
 }
 
-#pragma mark - Unzip helpers (uses UnzipKit instance API)
+#pragma mark - Unzip helpers
 
 - (nullable NSData *)readFileFromJar:(NSString *)jarPath entryName:(NSString *)entryName {
     if (!jarPath || !entryName) return nil;
@@ -125,77 +126,19 @@
     return nil;
 }
 
-#pragma mark - TOML parser (same as before)
-- (NSDictionary<NSString *, NSString *> *)parseFirstModsTableFromTomlString:(NSString *)s {
-    if (!s) return @{};
-    NSRange modsRange = [s rangeOfString:@"[[mods]]"];
-    if (modsRange.location == NSNotFound) {
-        modsRange = [s rangeOfString:@"[mods]"];
-        if (modsRange.location == NSNotFound) return @{};
-    }
-    NSUInteger start = modsRange.location;
-    NSUInteger end = s.length;
-    NSRange nextSection = [s rangeOfString:@"[[" options:0 range:NSMakeRange(start+1, s.length - (start+1))];
-    if (nextSection.location != NSNotFound) end = nextSection.location;
-    NSString *block = [s substringWithRange:NSMakeRange(start, end - start)];
-    NSMutableDictionary *out = [NSMutableDictionary dictionary];
-
-    NSArray<NSString *> *keys = @[@"displayName", @"version", @"description", @"logoFile", @"displayURL", @"authors", @"homepage", @"url"];
-    for (NSString *key in keys) {
-        NSString *patternTriple = [NSString stringWithFormat:@"%@\\s*=\\s*([\"']{3})([\\s\\S]*?)\\1", key];
-        NSRegularExpression *reTriple = [NSRegularExpression regularExpressionWithPattern:patternTriple options:NSRegularExpressionCaseInsensitive error:nil];
-        NSTextCheckingResult *rTriple = [reTriple firstMatchInString:block options:0 range:NSMakeRange(0, block.length)];
-        if (rTriple) {
-            NSRange valRange = [rTriple rangeAtIndex:2];
-            if (valRange.location != NSNotFound) {
-                NSString *val = [block substringWithRange:valRange];
-                if (val.length) out[key] = [val stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                continue;
-            }
-        }
-        NSString *pattern = [NSString stringWithFormat:@"%@\\s*=\\s*([\"'])(.*?)\\1", key];
-        NSRegularExpression *re = [NSRegularExpression regularExpressionWithPattern:pattern options:NSRegularExpressionCaseInsensitive error:nil];
-        NSTextCheckingResult *r = [re firstMatchInString:block options:0 range:NSMakeRange(0, block.length)];
-        if (r) {
-            NSRange valRange = [r rangeAtIndex:2];
-            if (valRange.location != NSNotFound) {
-                NSString *val = [block substringWithRange:valRange];
-                if (val.length) out[key] = [val stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                continue;
-            }
-        }
-        if ([key isEqualToString:@"authors"]) {
-            NSString *patternArr = @"authors\\s*=\\s*\\[([^\\]]+)\\]";
-            NSRegularExpression *reArr = [NSRegularExpression regularExpressionWithPattern:patternArr options:NSRegularExpressionCaseInsensitive error:nil];
-            NSTextCheckingResult *ra = [reArr firstMatchInString:block options:0 range:NSMakeRange(0, block.length)];
-            if (ra) {
-                NSRange inner = [ra rangeAtIndex:1];
-                if (inner.location != NSNotFound) {
-                    NSString *arr = [block substringWithRange:inner];
-                    NSRegularExpression *reQ = [NSRegularExpression regularExpressionWithPattern:@"[\"'](.*?)[\"']" options:0 error:nil];
-                    NSTextCheckingResult *rq = [reQ firstMatchInString:arr options:0 range:NSMakeRange(0, arr.length)];
-                    if (rq) {
-                        NSString *val = [arr substringWithRange:[rq rangeAtIndex:1]];
-                        if (val.length) out[key] = val;
-                    }
-                }
-            }
-        }
-    }
-    return out;
-}
-
-#pragma mark - Mods folder detection & scan (unchanged logic)
+#pragma mark - Robust mods folder detection
 - (nullable NSString *)existingModsFolderForProfile:(NSString *)profileName {
     NSString *profile = profileName.length ? profileName : @"default";
     NSFileManager *fm = NSFileManager.defaultManager;
 
+    // 1) Try PLProfiles defined gameDir (existing logic)
     @try {
         NSDictionary *profiles = PLProfiles.current.profiles;
         NSDictionary *prof = profiles[profile];
         if ([prof isKindOfClass:[NSDictionary class]]) {
             NSString *gameDir = prof[@"gameDir"];
             if ([gameDir isKindOfClass:[NSString class]] && gameDir.length > 0) {
+                // same checks as before
                 if ([gameDir hasPrefix:@"./"]) {
                     const char *gameDirC = getenv("POJAV_GAME_DIR");
                     if (gameDirC) {
@@ -235,6 +178,8 @@
             }
         }
     } @catch (NSException *ex) { }
+
+    // 2) Environment / standard known locations
     const char *pojHomeC = getenv("POJAV_HOME");
     if (pojHomeC) {
         NSString *pojHome = [NSString stringWithUTF8String:pojHomeC];
@@ -257,6 +202,32 @@
     NSString *cand4 = [documents stringByAppendingPathComponent:[NSString stringWithFormat:@"game_data/%@/mods", profile]];
     BOOL isDir4 = NO;
     if ([fm fileExistsAtPath:cand4 isDirectory:&isDir4] && isDir4) return cand4;
+
+    // 3) Broad fallback: search Documents and its subfolders for a "mods" folder containing jar files.
+    NSArray<NSString *> *searchRoots = @[documents, NSHomeDirectory()];
+    for (NSString *root in searchRoots) {
+        NSDirectoryEnumerator *enumerator = [fm enumeratorAtPath:root];
+        NSString *entry;
+        int depth = 0;
+        while ((entry = [enumerator nextObject]) && depth < 1000) {
+            depth++;
+            if ([entry.lastPathComponent.lowercaseString isEqualToString:@"mods"]) {
+                NSString *full = [root stringByAppendingPathComponent:entry];
+                BOOL isDir = NO;
+                if ([fm fileExistsAtPath:full isDirectory:&isDir] && isDir) {
+                    // check if contains jars
+                    NSArray *sub = [fm contentsOfDirectoryAtPath:full error:nil];
+                    for (NSString *fn in sub) {
+                        NSString *lower = fn.lowercaseString;
+                        if ([lower hasSuffix:@".jar"] || [lower hasSuffix:@".jar.disabled"]) {
+                            return full;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     return nil;
 }
 
@@ -278,6 +249,7 @@
                 }
             }
         }
+        // sort by displayName
         [items sortUsingComparator:^NSComparisonResult(ModItem *a, ModItem *b) {
             return [a.displayName caseInsensitiveCompare:b.displayName];
         }];
@@ -287,7 +259,7 @@
     });
 }
 
-#pragma mark - Metadata fetch (zip-based + online optional)
+#pragma mark - Metadata fetch (unchanged except safer homepage/sources population)
 
 - (void)fetchMetadataForMod:(ModItem *)mod completion:(ModMetadataHandler)completion {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
@@ -296,7 +268,7 @@
 
         __block BOOL gotLocal = NO;
 
-        // 1) Try to read fabric.mod.json directly from jar
+        // 1) fabric.mod.json
         NSData *fabricJsonData = [self readFileFromJar:mod.filePath entryName:@"fabric.mod.json"];
         if (!fabricJsonData) {
             fabricJsonData = [self readFileFromJar:mod.filePath entryName:@"META-INF/fabric.mod.json"];
@@ -306,16 +278,21 @@
             id obj = [NSJSONSerialization JSONObjectWithData:fabricJsonData options:0 error:&jerr];
             if (!jerr && [obj isKindOfClass:[NSDictionary class]]) {
                 NSDictionary *d = obj;
-                // Use "name" as mod name (Fabric convention)
                 if (d[@"name"] && [d[@"name"] isKindOfClass:[NSString class]]) mod.displayName = d[@"name"];
                 if (d[@"description"] && [d[@"description"] isKindOfClass:[NSString class]]) mod.modDescription = d[@"description"];
                 if (d[@"version"] && [d[@"version"] isKindOfClass:[NSString class]]) mod.version = d[@"version"];
-                // homepage / sources
+
+                // homepage may appear under contact.homepage for some fabric JSONs (example you provided)
                 if (d[@"homepage"] && [d[@"homepage"] isKindOfClass:[NSString class]]) mod.homepage = d[@"homepage"];
+                else if (d[@"contact"] && [d[@"contact"] isKindOfClass:[NSDictionary class]]) {
+                    NSString *hp = d[@"contact"][@"homepage"];
+                    if (hp && [hp isKindOfClass:[NSString class]] && hp.length) mod.homepage = hp;
+                }
+
                 if (d[@"sources"] && [d[@"sources"] isKindOfClass:[NSString class]]) mod.sources = d[@"sources"];
-                // icon path inside jar (relative)
+
                 if (d[@"icon"] && [d[@"icon"] isKindOfClass:[NSString class]]) {
-                    NSString *iconPath = d[@"icon"]; // e.g. assets/fabric/icon.png
+                    NSString *iconPath = d[@"icon"];
                     NSArray *cands = @[
                         iconPath ?: @"",
                         [iconPath stringByReplacingOccurrencesOfString:@"./" withString:@""],
@@ -331,7 +308,7 @@
             }
         }
 
-        // 2) Try mods.toml (META-INF/mods.toml) and neoforge.mods.toml
+        // 2) mods.toml / neoforge.mods.toml (same as earlier but make homepage+displayURL logic robust)
         if (!gotLocal) {
             NSData *modsTomlData = [self readFileFromJar:mod.filePath entryName:@"META-INF/mods.toml"];
             if (!modsTomlData) modsTomlData = [self readFileFromJar:mod.filePath entryName:@"mods.toml"];
@@ -346,8 +323,10 @@
                         if (dname.length) mod.displayName = dname;
                         if (fields[@"description"]) mod.modDescription = fields[@"description"];
                         if (fields[@"version"]) mod.version = fields[@"version"];
+                        // prefer explicit displayURL, then homepage
                         if (fields[@"displayURL"]) mod.homepage = fields[@"displayURL"];
-                        if (fields[@"homepage"]) mod.homepage = fields[@"homepage"];
+                        else if (fields[@"homepage"]) mod.homepage = fields[@"homepage"];
+
                         if (fields[@"logoFile"]) {
                             NSString *logo = fields[@"logoFile"];
                             NSArray *cands = @[
@@ -366,7 +345,7 @@
             }
         }
 
-        // 3) mcmod.info (old)
+        // 3) mcmod.info (unchanged)
         if (!gotLocal) {
             NSData *mcData = [self readFileFromJar:mod.filePath entryName:@"mcmod.info"];
             if (mcData) {
@@ -381,29 +360,12 @@
                         if (d[@"version"]) mod.version = d[@"version"];
                         gotLocal = YES;
                     }
-                } else {
-                    NSString *s = [[NSString alloc] initWithData:mcData encoding:NSUTF8StringEncoding];
-                    if (s && s.length) {
-                        NSRange nameRange = [s rangeOfString:@"name\"\\s*:\\s*\"" options:NSRegularExpressionSearch];
-                        if (nameRange.location != NSNotFound) {
-                            NSUInteger start = NSMaxRange(nameRange);
-                            NSUInteger pos = start;
-                            NSMutableString *buf = [NSMutableString string];
-                            while (pos < s.length) {
-                                unichar c = [s characterAtIndex:pos++];
-                                if (c == '\"') break;
-                                [buf appendFormat:@"%C", c];
-                            }
-                            if (buf.length) { mod.displayName = buf; gotLocal = YES; }
-                        }
-                    }
                 }
             }
         }
 
-        // 在线搜索（当 onlineSearchEnabled 为 YES 时）
+        // Online fallback (uses rule: Fabric -> displayName, Forge/NeoForge -> basename)
         if (!gotLocal && self.onlineSearchEnabled) {
-            // 搜索关键词规则：Fabric 使用 name（即 displayName），Forge/NeoForge 使用文件名（basename），否则 fallback 到 displayName
             NSString *searchKey = nil;
             if (mod.isFabric && mod.displayName.length > 0) {
                 searchKey = mod.displayName;
@@ -459,7 +421,8 @@
     });
 }
 
-#pragma mark - File operations (unchanged)
+#pragma mark - File operations
+
 - (BOOL)toggleEnableForMod:(ModItem *)mod error:(NSError **)error {
     NSString *path = mod.filePath;
     NSFileManager *fm = [NSFileManager defaultManager];

@@ -3,7 +3,8 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
-//  Updated to show Fabric/Forge/NeoForge loader badges (ModLoaderIcons) and external link (homepage/sources).
+//  Updated to fix open-link hit area, ensure loader badge loads from bundle (Natives/ModLoaderIcons fallback),
+//  and ensure buttons are on top so touches are registered.
 //
 
 #import "ModTableViewCell.h"
@@ -27,6 +28,7 @@
         _loaderBadgeView = [[UIImageView alloc] initWithFrame:CGRectZero];
         _loaderBadgeView.contentMode = UIViewContentModeScaleAspectFit;
         _loaderBadgeView.hidden = YES;
+        _loaderBadgeView.userInteractionEnabled = NO; // decorative
         [self.contentView addSubview:_loaderBadgeView];
 
         _nameLabel = [[UILabel alloc] initWithFrame:CGRectZero];
@@ -43,12 +45,15 @@
         _toggleButton = [UIButton buttonWithType:UIButtonTypeSystem];
         _toggleButton.titleLabel.font = [UIFont systemFontOfSize:14];
         [_toggleButton addTarget:self action:@selector(toggleTapped) forControlEvents:UIControlEventTouchUpInside];
+        _toggleButton.contentEdgeInsets = UIEdgeInsetsMake(4, 8, 4, 8);
         [self.contentView addSubview:_toggleButton];
 
         _openLinkButton = [UIButton buttonWithType:UIButtonTypeSystem];
         _openLinkButton.tintColor = [UIColor systemBlueColor];
         _openLinkButton.titleLabel.font = [UIFont systemFontOfSize:14];
         [_openLinkButton addTarget:self action:@selector(openLinkTapped) forControlEvents:UIControlEventTouchUpInside];
+        // make hit area comfortably large
+        _openLinkButton.contentEdgeInsets = UIEdgeInsetsMake(6, 6, 6, 6);
         _openLinkButton.hidden = YES;
         [self.contentView addSubview:_openLinkButton];
 
@@ -57,7 +62,11 @@
         _deleteButton.titleLabel.font = [UIFont systemFontOfSize:14];
         [_deleteButton setTitle:@"删除" forState:UIControlStateNormal];
         [_deleteButton addTarget:self action:@selector(deleteTapped) forControlEvents:UIControlEventTouchUpInside];
+        _deleteButton.contentEdgeInsets = UIEdgeInsetsMake(4, 8, 4, 8);
         [self.contentView addSubview:_deleteButton];
+
+        // Improve tap behavior: ensure accessory views don't block touches
+        self.selectionStyle = UITableViewCellSelectionStyleNone;
     }
     return self;
 }
@@ -69,15 +78,15 @@
     self.modIconView.frame = CGRectMake(padding, padding, iconSize, iconSize);
 
     CGFloat x = CGRectGetMaxX(self.modIconView.frame) + 10;
-    CGFloat rightButtonsWidth = 160;
+    CGFloat rightButtonsWidth = 160; // space for buttons
     CGFloat contentWidth = self.contentView.bounds.size.width - x - padding - rightButtonsWidth;
 
-    // badge size
+    // badge size (fits visually with name)
     CGFloat badgeSize = 18;
     CGFloat badgeY = padding + 2;
     self.loaderBadgeView.frame = CGRectMake(x, badgeY, badgeSize, badgeSize);
 
-    // name label position: if badge visible, name placed after badge
+    // name label placed after badge when visible
     CGFloat nameX = x;
     if (!self.loaderBadgeView.hidden) {
         nameX += badgeSize + 6;
@@ -85,7 +94,7 @@
     self.nameLabel.frame = CGRectMake(nameX, padding, contentWidth - (nameX - x), 20);
     self.descLabel.frame = CGRectMake(x, CGRectGetMaxY(self.nameLabel.frame) + 4, contentWidth, 36);
 
-    // buttons on right: delete | toggle | openLink
+    // buttons on right: delete | toggle | openLink (openLink leftmost)
     CGFloat btnW = 60;
     CGFloat spacing = 8;
     CGFloat right = self.contentView.bounds.size.width - padding;
@@ -94,6 +103,11 @@
     self.toggleButton.frame = CGRectMake(right - btnW, 12, btnW, 28);
     right = CGRectGetMinX(self.toggleButton.frame) - spacing;
     self.openLinkButton.frame = CGRectMake(right - btnW, 12, btnW, 28);
+
+    // Ensure interactive controls are on top
+    [self.contentView bringSubviewToFront:self.deleteButton];
+    [self.contentView bringSubviewToFront:self.toggleButton];
+    [self.contentView bringSubviewToFront:self.openLinkButton];
 }
 
 - (void)prepareForReuse {
@@ -156,7 +170,7 @@
         }
     }
 
-    // loader badge: choose appropriate icon from Natives/ModLoaderIcons
+    // loader badge: choose appropriate icon from bundle (check several resource directories)
     UIImage *loaderImg = [self loaderIconForMod:mod traitCollection:self.traitCollection];
     if (loaderImg) {
         self.loaderBadgeView.image = loaderImg;
@@ -200,15 +214,27 @@
     NSString *suffix = dark ? @"dark" : @"light";
     NSString *resourceName = [NSString stringWithFormat:@"%@_%@", base, suffix]; // e.g. fabric_dark
 
-    // Try to load from bundle subdirectory "ModLoaderIcons"
-    NSString *path = [[NSBundle mainBundle] pathForResource:resourceName ofType:@"png" inDirectory:@"ModLoaderIcons"];
     UIImage *img = nil;
-    if (path) {
-        img = [UIImage imageWithContentsOfFile:path];
+
+    // 1) Try to find under bundled "ModLoaderIcons" directory (this covers Natives/ModLoaderIcons packaged as resources)
+    NSString *resourceDirCandidates[] = {@"ModLoaderIcons", @"Natives/ModLoaderIcons", @"Natives/ModLoaderIcons/Resources", nil};
+    for (int i = 0; resourceDirCandidates[i] != nil && !img; i++) {
+        NSString *dir = resourceDirCandidates[i];
+        NSString *path = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:dir];
+        NSString *filePath = [path stringByAppendingPathComponent:[resourceName stringByAppendingPathExtension:@"png"]];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
+            img = [UIImage imageWithContentsOfFile:filePath];
+            break;
+        }
     }
-    // Fallback to imageNamed (in case images are in asset catalogs or resource root)
+
+    // 2) Fallback to resource named (assets or imageNamed)
     if (!img) {
-        img = [UIImage imageNamed:resourceName];
+        NSString *fileInBundle = [[NSBundle mainBundle] pathForResource:resourceName ofType:@"png"];
+        if (fileInBundle) img = [UIImage imageWithContentsOfFile:fileInBundle];
+    }
+    if (!img) {
+        img = [UIImage imageNamed:resourceName]; // final fallback if asset catalog used
     }
     return img;
 }
@@ -228,6 +254,9 @@
 }
 
 - (void)openLinkTapped {
+    // Defensive: ensure we have a current mod and it actually has a link
+    if (!self.currentMod) return;
+    if (!(self.currentMod.homepage.length || self.currentMod.sources.length)) return;
     if ([self.delegate respondsToSelector:@selector(modCellDidTapOpenLink:)]) {
         [self.delegate modCellDidTapOpenLink:self];
     }
