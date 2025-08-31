@@ -4,7 +4,7 @@
 //
 //  Created by Copilot on 2025-08-22.
 //  Updated: removed online-search & open-link, added batch disable/delete, listen to profile change notifications.
-//  Fixed compile error by using UIBarButtonItemStylePlain and tintColor for destructive appearance.
+//  Added a "批量" button to the right bar (left of refresh) to enter batch/edit mode.
 //
 
 #import "ModTableViewController.h"
@@ -26,12 +26,14 @@
     self.tableView.allowsSelectionDuringEditing = YES;
     self.tableView.allowsMultipleSelectionDuringEditing = YES;
 
-    // Edit button for batch operations
+    // Edit button for batch operations (kept on left)
     self.navigationItem.leftBarButtonItem = self.editButtonItem;
 
-    // Refresh button (rightmost)
+    // Refresh button (rightmost) and Batch button to its left
     UIBarButtonItem *refresh = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshTapped)];
-    self.navigationItem.rightBarButtonItem = refresh;
+    UIBarButtonItem *batchEntry = [[UIBarButtonItem alloc] initWithTitle:@"批量" style:UIBarButtonItemStylePlain target:self action:@selector(enterBatchMode:)];
+    // per UINavigationItem rightBarButtonItems: first item is placed at the rightmost.
+    self.navigationItem.rightBarButtonItems = @[refresh, batchEntry];
 
     // Observe profile change notifications to reload mods when profile gameDir changed
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(profileDidChange:) name:@"ProfileDidChangeNotification" object:nil];
@@ -43,6 +45,12 @@
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
+- (void)enterBatchMode:(id)sender {
+    // Toggle editing mode to allow multi-selection and batch operations.
+    BOOL willEdit = !self.isEditing;
+    [self setEditing:willEdit animated:YES];
+}
+
 - (void)setEditing:(BOOL)editing animated:(BOOL)animated {
     [super setEditing:editing animated:animated];
     [self.tableView setEditing:editing animated:animated];
@@ -52,7 +60,6 @@
         UIBarButtonItem *flex = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
         UIBarButtonItem *batchToggle = [[UIBarButtonItem alloc] initWithTitle:@"批量禁用/启用" style:UIBarButtonItemStylePlain target:self action:@selector(batchToggleSelected:)];
         UIBarButtonItem *batchDelete = [[UIBarButtonItem alloc] initWithTitle:@"批量删除" style:UIBarButtonItemStylePlain target:self action:@selector(batchDeleteSelected:)];
-        // Use tintColor to indicate destructive
         batchDelete.tintColor = [UIColor systemRedColor];
         self.toolbarItems = @[batchToggle, flex, batchDelete];
     } else {

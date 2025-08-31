@@ -5,6 +5,7 @@
 //  Created by Copilot on 2025-08-22.
 //  Updated: multi-badge support, original rendering, fixed layout & hit areas.
 //  Removed open-link button.
+//  Fix: handle file:// icon URLs (read direct) and hashed cache path for remote URLs.
 //
 
 #import "ModTableViewCell.h"
@@ -150,18 +151,56 @@
     NSString *toggleTitle = mod.disabled ? @"启用" : @"禁用";
     [self.toggleButton setTitle:toggleTitle forState:UIControlStateNormal];
 
-    // mod icon
+    // mod icon (handle file:// URLs specially; otherwise use ModService cache)
     UIImage *placeholder = [UIImage systemImageNamed:@"cube.box"];
     self.modIconView.image = placeholder;
+
     if (mod.iconURL.length > 0) {
+        NSURL *url = [NSURL URLWithString:mod.iconURL];
+        if (url && url.isFileURL) {
+            NSString *localPath = url.path;
+            if ([[NSFileManager defaultManager] fileExistsAtPath:localPath]) {
+                NSData *d = [NSData dataWithContentsOfFile:localPath];
+                UIImage *img = [UIImage imageWithData:d];
+                if (img) self.modIconView.image = img;
+                return;
+            }
+        }
+
+        // Non-file URL: check hashed cache path
         NSString *cachePath = [[ModService sharedService] iconCachePathForURL:mod.iconURL];
-        if ([[NSFileManager defaultManager] fileExistsAtPath:cachePath]) {
+        if (cachePath && [[NSFileManager defaultManager] fileExistsAtPath:cachePath]) {
             NSData *d = [NSData dataWithContentsOfFile:cachePath];
             UIImage *img = [UIImage imageWithData:d];
-            if (img) self.modIconView.image = img;
+            if (img) {
+                self.modIconView.image = img;
+                return;
+            }
+        }
+
+        // not cached -> attempt to download (async) and save to cachePath
+        NSURL *remoteURL = [NSURL URLWithString:mod.iconURL];
+        if (remoteURL && !remoteURL.isFileURL) {
+            dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+                NSData *d = [NSData dataWithContentsOfURL:remoteURL];
+                if (!d) return;
+                // Ensure cache folder exists
+                NSString *pathToWrite = cachePath;
+                if (pathToWrite) {
+                    NSString *dir = [pathToWrite stringByDeletingLastPathComponent];
+                    if (dir && ![[NSFileManager defaultManager] fileExistsAtPath:dir]) {
+                        [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+                    }
+                    [d writeToFile:pathToWrite atomically:YES];
+                }
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    UIImage *img = [UIImage imageWithData:d];
+                    if (img) self.modIconView.image = img;
+                });
+            });
         }
     }
-
+    // otherwise placeholder remains
     // loader badges: Fabric, Forge, NeoForge in order
     NSArray<UIImage *> *badgeImgs = [self loaderIconsForMod:mod traitCollection:self.traitCollection];
     NSArray<UIImageView *> *badgeViews = @[self.loaderBadgeView1, self.loaderBadgeView2, self.loaderBadgeView3];
