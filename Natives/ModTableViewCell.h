@@ -3,7 +3,7 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
-//  Updated: supports multiple loader badges (fabric/forge/neoforge).
+//  Updated: supports multiple loader badges (fabric/forge/neoforge), removed open-link button.
 //
 
 #import <UIKit/UIKit.h>

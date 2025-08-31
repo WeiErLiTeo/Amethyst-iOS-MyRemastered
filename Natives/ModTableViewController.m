@@ -4,6 +4,7 @@
 //
 //  Created by Copilot on 2025-08-22.
 //  Updated: removed online-search & open-link, added batch disable/delete, listen to profile change notifications.
+//  Fixed compile error by using UIBarButtonItemStylePlain and tintColor for destructive appearance.
 //
 
 #import "ModTableViewController.h"
@@ -50,7 +51,9 @@
     if (editing) {
         UIBarButtonItem *flex = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
         UIBarButtonItem *batchToggle = [[UIBarButtonItem alloc] initWithTitle:@"批量禁用/启用" style:UIBarButtonItemStylePlain target:self action:@selector(batchToggleSelected:)];
-        UIBarButtonItem *batchDelete = [[UIBarButtonItem alloc] initWithTitle:@"批量删除" style:UIBarButtonItemStyleDestructive target:self action:@selector(batchDeleteSelected:)];
+        UIBarButtonItem *batchDelete = [[UIBarButtonItem alloc] initWithTitle:@"批量删除" style:UIBarButtonItemStylePlain target:self action:@selector(batchDeleteSelected:)];
+        // Use tintColor to indicate destructive
+        batchDelete.tintColor = [UIColor systemRedColor];
         self.toolbarItems = @[batchToggle, flex, batchDelete];
     } else {
         self.toolbarItems = nil;

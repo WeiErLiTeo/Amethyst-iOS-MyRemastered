@@ -16,7 +16,6 @@
 #import "utils.h"
 
 @interface LauncherProfileEditorViewController() <UIPickerViewDataSource, UIPickerViewDelegate>
-// preserve oldName etc.
 @property(nonatomic) NSString* oldName;
 
 @property(nonatomic) NSArray<NSDictionary *> *versionList;
@@ -26,7 +25,7 @@
 @property(nonatomic) UIToolbar* versionPickerToolbar;
 @property(nonatomic) int versionSelectedAt;
 
-// Declare methods used in viewDidLoad so the compiler sees them when called
+// forward declarations so calls in viewDidLoad compile
 - (void)setupVersionPicker;
 - (void)changeVersionType:(UISegmentedControl *)sender;
 @end
@@ -78,7 +77,6 @@
     // Setup version picker
     [self setupVersionPicker];
     id typeVersionPicker = ^void(UITableViewCell *cell, NSString *section, NSString *key, NSDictionary *item){
-        // reuse existing helper to create a textfield accessory
         self.typeTextField(cell, section, key, item);
         UITextField *textField = (id)cell.accessoryView;
         weakSelf.versionTextField = textField;
