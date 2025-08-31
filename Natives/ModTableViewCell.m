@@ -4,6 +4,7 @@
 //
 //  Created by Copilot on 2025-08-22.
 //  Updated: multi-badge support, original rendering, fixed layout & hit areas.
+//  Removed open-link button.
 //
 
 #import "ModTableViewCell.h"
@@ -56,16 +57,6 @@
         _toggleButton.contentEdgeInsets = UIEdgeInsetsMake(4, 8, 4, 8);
         [self.contentView addSubview:_toggleButton];
 
-        _openLinkButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        _openLinkButton.tintColor = [UIColor systemBlueColor];
-        _openLinkButton.titleLabel.font = [UIFont systemFontOfSize:14];
-        [_openLinkButton addTarget:self action:@selector(openLinkTapped) forControlEvents:UIControlEventTouchUpInside];
-        _openLinkButton.contentEdgeInsets = UIEdgeInsetsMake(6, 6, 6, 6);
-        _openLinkButton.hidden = YES;
-        _openLinkButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
-        _openLinkButton.imageView.contentMode = UIViewContentModeScaleAspectFit;
-        [self.contentView addSubview:_openLinkButton];
-
         _deleteButton = [UIButton buttonWithType:UIButtonTypeSystem];
         [_deleteButton setTitleColor:[UIColor systemRedColor] forState:UIControlStateNormal];
         _deleteButton.titleLabel.font = [UIFont systemFontOfSize:14];
@@ -103,7 +94,6 @@
     CGFloat nameX = x;
     // if first badge visible, shift nameX to after badges area for alignment
     if (!self.loaderBadgeView1.hidden) {
-        // compute width used by visible badges
         CGFloat used = 0;
         for (int i = 0; i < 3; i++) {
             UIImageView *bv = badges[i];
@@ -114,21 +104,16 @@
     self.nameLabel.frame = CGRectMake(nameX, padding, contentWidth - (nameX - x), 20);
     self.descLabel.frame = CGRectMake(x, CGRectGetMaxY(self.nameLabel.frame) + 4, contentWidth, 36);
 
-    // buttons on right: delete | toggle | openLink
+    // buttons on right: delete | toggle
     CGFloat btnW = 60;
     CGFloat spacing = 8;
     CGFloat right = self.contentView.bounds.size.width - padding;
     self.deleteButton.frame = CGRectMake(right - btnW, 12, btnW, 28);
     right = CGRectGetMinX(self.deleteButton.frame) - spacing;
     self.toggleButton.frame = CGRectMake(right - btnW, 12, btnW, 28);
-    right = CGRectGetMinX(self.toggleButton.frame) - spacing;
-    CGFloat openW = 44;
-    self.openLinkButton.frame = CGRectMake(right - openW, 12, openW, 28);
 
-    // Bring interactive controls to front
     [self.contentView bringSubviewToFront:self.deleteButton];
     [self.contentView bringSubviewToFront:self.toggleButton];
-    [self.contentView bringSubviewToFront:self.openLinkButton];
 }
 
 - (void)prepareForReuse {
@@ -137,8 +122,6 @@
     self.loaderBadgeView1.image = nil; self.loaderBadgeView1.hidden = YES;
     self.loaderBadgeView2.image = nil; self.loaderBadgeView2.hidden = YES;
     self.loaderBadgeView3.image = nil; self.loaderBadgeView3.hidden = YES;
-    self.openLinkButton.hidden = YES;
-    [self.openLinkButton setImage:nil forState:UIControlStateNormal];
     self.nameLabel.attributedText = nil;
     self.nameLabel.text = nil;
     self.descLabel.text = nil;
@@ -167,7 +150,7 @@
     NSString *toggleTitle = mod.disabled ? @"启用" : @"禁用";
     [self.toggleButton setTitle:toggleTitle forState:UIControlStateNormal];
 
-    // mod icon (as before)
+    // mod icon
     UIImage *placeholder = [UIImage systemImageNamed:@"cube.box"];
     self.modIconView.image = placeholder;
     if (mod.iconURL.length > 0) {
@@ -176,26 +159,11 @@
             NSData *d = [NSData dataWithContentsOfFile:cachePath];
             UIImage *img = [UIImage imageWithData:d];
             if (img) self.modIconView.image = img;
-        } else {
-            NSURL *url = [NSURL URLWithString:mod.iconURL];
-            if (url) {
-                dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-                    NSData *d = [NSData dataWithContentsOfURL:url];
-                    if (d) {
-                        [d writeToFile:cachePath atomically:YES];
-                        dispatch_async(dispatch_get_main_queue(), ^{
-                            UIImage *img = [UIImage imageWithData:d];
-                            if (img) self.modIconView.image = img;
-                        });
-                    }
-                });
-            }
         }
     }
 
-    // loader badges: try to show up to three icons: Fabric, Forge, NeoForge (in that order)
+    // loader badges: Fabric, Forge, NeoForge in order
     NSArray<UIImage *> *badgeImgs = [self loaderIconsForMod:mod traitCollection:self.traitCollection];
-    // assign to available badge views
     NSArray<UIImageView *> *badgeViews = @[self.loaderBadgeView1, self.loaderBadgeView2, self.loaderBadgeView3];
     for (NSUInteger i = 0; i < badgeViews.count; i++) {
         UIImageView *bv = badgeViews[i];
@@ -208,33 +176,13 @@
             bv.hidden = YES;
         }
     }
-
-    // open link button
-    if (mod.homepage.length > 0 || mod.sources.length > 0) {
-        self.openLinkButton.hidden = NO;
-        UIImage *globe = [UIImage systemImageNamed:@"globe"];
-        if (globe) {
-            globe = [globe imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
-            [self.openLinkButton setImage:globe forState:UIControlStateNormal];
-            [self.openLinkButton setTitle:@"" forState:UIControlStateNormal];
-        } else {
-            [self.openLinkButton setTitle:@"🌐" forState:UIControlStateNormal];
-        }
-        self.openLinkButton.userInteractionEnabled = YES;
-    } else {
-        self.openLinkButton.hidden = YES;
-    }
 }
-
-#pragma mark - loader icon loader
 
 - (NSArray<UIImage *> *)loaderIconsForMod:(ModItem *)mod traitCollection:(UITraitCollection *)traits {
     if (!mod) return @[];
 
     NSMutableArray<UIImage *> *out = [NSMutableArray array];
 
-    // Helper to load image by base name (fabric/forge/neoforge)
-    __weak typeof(self) wself = self;
     UIImage *(^loadImage)(NSString *) = ^UIImage *(NSString *base) {
         if (!base) return nil;
         NSString *suffix = @"light";
@@ -261,7 +209,6 @@
         return img;
     };
 
-    // Always try to add in order Fabric, Forge, NeoForge if the mod supports them
     if (mod.isFabric) {
         UIImage *i = loadImage(@"fabric");
         if (i) [out addObject:i];
@@ -289,14 +236,6 @@
 - (void)deleteTapped {
     if ([self.delegate respondsToSelector:@selector(modCellDidTapDelete:)]) {
         [self.delegate modCellDidTapDelete:self];
-    }
-}
-
-- (void)openLinkTapped {
-    if (!self.currentMod) return;
-    if (!(self.currentMod.homepage.length || self.currentMod.sources.length)) return;
-    if ([self.delegate respondsToSelector:@selector(modCellDidTapOpenLink:)]) {
-        [self.delegate modCellDidTapOpenLink:self];
     }
 }
 

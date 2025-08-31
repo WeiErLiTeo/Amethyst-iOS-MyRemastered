@@ -3,7 +3,7 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
-//  Updated: ensure 上网搜索 switch is placed directly left of refresh and visible reliably.
+//  Updated: removed online-search & open-link, added batch disable/delete, listen to profile change notifications.
 //
 
 #import "ModTableViewController.h"
@@ -13,7 +13,6 @@
 
 @interface ModTableViewController () <ModTableViewCellDelegate>
 @property (nonatomic, strong) NSArray<ModItem *> *mods;
-@property (nonatomic, strong) UISwitch *onlineSearchSwitch;
 @end
 
 @implementation ModTableViewController
@@ -23,42 +22,48 @@
     self.title = @"Mods";
     [self.tableView registerClass:[ModTableViewCell class] forCellReuseIdentifier:@"ModCell"];
     self.tableView.rowHeight = 76;
+    self.tableView.allowsSelectionDuringEditing = YES;
+    self.tableView.allowsMultipleSelectionDuringEditing = YES;
 
-    // Create a container for label + switch and make it compact but wide enough
-    UIView *container = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 140, 32)];
-    UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 78, 32)];
-    label.text = @"上网搜索";
-    label.font = [UIFont systemFontOfSize:13];
-    label.textAlignment = NSTextAlignmentRight;
-    label.autoresizingMask = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleRightMargin;
-    [container addSubview:label];
+    // Edit button for batch operations
+    self.navigationItem.leftBarButtonItem = self.editButtonItem;
 
-    self.onlineSearchSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(86, 4, 0, 0)];
-    self.onlineSearchSwitch.on = [ModService sharedService].onlineSearchEnabled;
-    [self.onlineSearchSwitch addTarget:self action:@selector(toggleOnlineSearch:) forControlEvents:UIControlEventValueChanged];
-    self.onlineSearchSwitch.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
-    [container addSubview:self.onlineSearchSwitch];
-
-    UIBarButtonItem *switchContainerItem = [[UIBarButtonItem alloc] initWithCustomView:container];
-
-    // Refresh button: rightmost
+    // Refresh button (rightmost)
     UIBarButtonItem *refresh = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshTapped)];
+    self.navigationItem.rightBarButtonItem = refresh;
 
-    // Put refresh as rightmost, switch container to its left
-    self.navigationItem.rightBarButtonItems = @[refresh, switchContainerItem];
+    // Observe profile change notifications to reload mods when profile gameDir changed
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(profileDidChange:) name:@"ProfileDidChangeNotification" object:nil];
 
-    // Ensure switch reflects current state when view appears
     [self refreshTapped];
 }
 
-- (void)viewWillAppear:(BOOL)animated {
-    [super viewWillAppear:animated];
-    self.onlineSearchSwitch.on = [ModService sharedService].onlineSearchEnabled;
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
-- (void)toggleOnlineSearch:(UISwitch *)sw {
-    [ModService sharedService].onlineSearchEnabled = sw.isOn;
-    [self refreshTapped];
+- (void)setEditing:(BOOL)editing animated:(BOOL)animated {
+    [super setEditing:editing animated:animated];
+    [self.tableView setEditing:editing animated:animated];
+    [self.navigationController setToolbarHidden:!editing animated:YES];
+
+    if (editing) {
+        UIBarButtonItem *flex = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
+        UIBarButtonItem *batchToggle = [[UIBarButtonItem alloc] initWithTitle:@"批量禁用/启用" style:UIBarButtonItemStylePlain target:self action:@selector(batchToggleSelected:)];
+        UIBarButtonItem *batchDelete = [[UIBarButtonItem alloc] initWithTitle:@"批量删除" style:UIBarButtonItemStyleDestructive target:self action:@selector(batchDeleteSelected:)];
+        self.toolbarItems = @[batchToggle, flex, batchDelete];
+    } else {
+        self.toolbarItems = nil;
+    }
+}
+
+- (void)profileDidChange:(NSNotification *)note {
+    NSString *profileName = note.userInfo[@"profileName"];
+    if (!profileName || [profileName length] == 0) return;
+    // If currently viewing the same profile, refresh mods to reflect new gameDir
+    if (!self.profileName || [self.profileName isEqualToString:profileName]) {
+        [self refreshTapped];
+    }
 }
 
 - (void)refreshTapped {
@@ -76,8 +81,6 @@
                     if (idx != NSNotFound) {
                         NSIndexPath *path = [NSIndexPath indexPathForRow:idx inSection:0];
                         [self.tableView reloadRowsAtIndexPaths:@[path] withRowAnimation:UITableViewRowAnimationNone];
-                    } else {
-                        [self.tableView reloadData];
                     }
                 });
             }];
@@ -85,14 +88,82 @@
     }];
 }
 
-#pragma mark - Table view data source
+#pragma mark - Batch actions
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    return 1;
+- (NSArray<NSIndexPath *> *)selectedIndexPathsSortedDescending {
+    NSArray<NSIndexPath *> *selected = [self.tableView indexPathsForSelectedRows];
+    if (!selected) return @[];
+    // Sort descending for safe removal
+    selected = [selected sortedArrayUsingComparator:^NSComparisonResult(NSIndexPath *a, NSIndexPath *b) {
+        if (a.row > b.row) return NSOrderedAscending;
+        if (a.row < b.row) return NSOrderedDescending;
+        return NSOrderedSame;
+    }];
+    return selected;
 }
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return self.mods.count;
+
+- (void)batchToggleSelected:(id)sender {
+    NSArray<NSIndexPath *> *selected = [self.tableView indexPathsForSelectedRows];
+    if (!selected || selected.count == 0) {
+        UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"提示" message:@"未选择任何模组" preferredStyle:UIAlertControllerStyleAlert];
+        [ac addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:ac animated:YES completion:nil];
+        return;
+    }
+    // Toggle each selected mod
+    NSMutableArray<NSIndexPath *> *toReload = [NSMutableArray array];
+    for (NSIndexPath *ip in selected) {
+        ModItem *m = self.mods[ip.row];
+        NSError *err = nil;
+        BOOL ok = [[ModService sharedService] toggleEnableForMod:m error:&err];
+        if (!ok) {
+            NSLog(@"批量切换失败: %@", err.localizedDescription);
+        }
+        [toReload addObject:ip];
+    }
+    [self setEditing:NO animated:YES];
+    [self.tableView reloadRowsAtIndexPaths:toReload withRowAnimation:UITableViewRowAnimationAutomatic];
 }
+
+- (void)batchDeleteSelected:(id)sender {
+    NSArray<NSIndexPath *> *selected = [self selectedIndexPathsSortedDescending];
+    if (!selected || selected.count == 0) {
+        UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"提示" message:@"未选择任何模组" preferredStyle:UIAlertControllerStyleAlert];
+        [ac addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:ac animated:YES completion:nil];
+        return;
+    }
+    UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"确认删除" message:@"确定要删除所选模组吗？此操作不可恢复。" preferredStyle:UIAlertControllerStyleAlert];
+    [ac addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [ac addAction:[UIAlertAction actionWithTitle:@"删除" style:UIAlertActionStyleDestructive handler:^(UIAlertAction * _Nonnull action) {
+        NSMutableArray *newMods = [self.mods mutableCopy];
+        NSMutableArray<NSIndexPath *> *deletedIndexPaths = [NSMutableArray array];
+        for (NSIndexPath *ip in selected) {
+            if (ip.row < newMods.count) {
+                ModItem *m = newMods[ip.row];
+                NSError *err = nil;
+                if ([[ModService sharedService] deleteMod:m error:&err]) {
+                    [newMods removeObjectAtIndex:ip.row];
+                    [deletedIndexPaths addObject:ip];
+                } else {
+                    NSLog(@"删除失败: %@", err.localizedDescription);
+                }
+            }
+        }
+        self.mods = [newMods copy];
+        [self.tableView beginUpdates];
+        [self.tableView deleteRowsAtIndexPaths:deletedIndexPaths withRowAnimation:UITableViewRowAnimationAutomatic];
+        [self.tableView endUpdates];
+        [self setEditing:NO animated:YES];
+    }]];
+    [self presentViewController:ac animated:YES completion:nil];
+}
+
+#pragma mark - Table view data source/delegate
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 1; }
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.mods.count; }
+
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     ModTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"ModCell" forIndexPath:indexPath];
     ModItem *m = self.mods[indexPath.row];
@@ -138,30 +209,6 @@
         }
     }]];
     [self presentViewController:ac animated:YES completion:nil];
-}
-
-- (void)modCellDidTapOpenLink:(UITableViewCell *)cell {
-    NSIndexPath *ip = [self.tableView indexPathForCell:cell];
-    if (!ip) return;
-    ModItem *m = self.mods[ip.row];
-    NSString *urlStr = m.homepage.length ? m.homepage : (m.sources.length ? m.sources : nil);
-    if (!urlStr) return;
-    NSURL *u = [NSURL URLWithString:urlStr];
-    if (!u || !u.scheme) {
-        NSString *withScheme = [NSString stringWithFormat:@"https://%@", urlStr];
-        u = [NSURL URLWithString:withScheme];
-    }
-    if (u) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [[UIApplication sharedApplication] openURL:u options:@{} completionHandler:^(BOOL success) {
-                if (!success) {
-                    UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"无法打开链接" message:urlStr preferredStyle:UIAlertControllerStyleAlert];
-                    [ac addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil]];
-                    [self presentViewController:ac animated:YES completion:nil];
-                }
-            }];
-        });
-    }
 }
 
 @end
