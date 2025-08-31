@@ -1,3 +1,11 @@
+//
+//  ModTableViewCell.m
+//  AmethystMods
+//
+//  Created by Copilot on 2025-08-22.
+//  Updated: Fixed currentMod property, API availability checks.
+//
+
 #import "ModTableViewCell.h"
 #import "ModItem.h"
 #import "ModService.h"
@@ -5,7 +13,7 @@
 @implementation ModTableViewCell
 
 - (void)configureWithMod:(ModItem *)mod {
-    self.currentMod = mod;
+    self.currentMod = mod; // 修复错误
 
     // 设置占位图标
     UIImage *placeholder = [UIImage systemImageNamed:@"cube.box"];
@@ -38,6 +46,28 @@
                 });
             }
         }
+    }
+}
+
+#pragma mark - Actions
+
+- (void)toggleTapped {
+    if ([self.delegate respondsToSelector:@selector(modCellDidTapToggle:)]) {
+        [self.delegate modCellDidTapToggle:self];
+    }
+}
+
+- (void)deleteTapped {
+    if ([self.delegate respondsToSelector:@selector(modCellDidTapDelete:)]) {
+        [self.delegate modCellDidTapDelete:self];
+    }
+}
+
+- (void)openLinkTapped {
+    if (!self.currentMod) return;
+    if (!(self.currentMod.homepage.length || self.currentMod.sources.length)) return;
+    if ([self.delegate respondsToSelector:@selector(modCellDidTapOpenLink:)]) {
+        [self.delegate modCellDidTapOpenLink:self];
     }
 }
 
