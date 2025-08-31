@@ -3,8 +3,8 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
-//  Updated: removed online-search & open-link, added batch disable/delete, listen to profile change notifications.
-//  Added a "批量" button to the right bar (left of refresh) to enter batch/edit mode.
+//  Updated: ensure batch entry always visible by using a custom rightBarButtonItem customView
+//  (two adjacent buttons), keep refresh as rightmost and batch to its left.
 //
 
 #import "ModTableViewController.h"
@@ -26,14 +26,40 @@
     self.tableView.allowsSelectionDuringEditing = YES;
     self.tableView.allowsMultipleSelectionDuringEditing = YES;
 
-    // Edit button for batch operations (kept on left)
+    // Left edit button still useful
     self.navigationItem.leftBarButtonItem = self.editButtonItem;
 
-    // Refresh button (rightmost) and Batch button to its left
-    UIBarButtonItem *refresh = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshTapped)];
-    UIBarButtonItem *batchEntry = [[UIBarButtonItem alloc] initWithTitle:@"批量" style:UIBarButtonItemStylePlain target:self action:@selector(enterBatchMode:)];
-    // per UINavigationItem rightBarButtonItems: first item is placed at the rightmost.
-    self.navigationItem.rightBarButtonItems = @[refresh, batchEntry];
+    // Create a custom view for the right bar: [ 批量 | 刷新 ]
+    UIView *rightView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 96, 32)];
+
+    // Batch button (left)
+    UIButton *batchBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    batchBtn.frame = CGRectMake(0, 0, 56, 32);
+    [batchBtn setTitle:@"批量" forState:UIControlStateNormal];
+    batchBtn.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightRegular];
+    [batchBtn addTarget:self action:@selector(enterBatchMode:) forControlEvents:UIControlEventTouchUpInside];
+    batchBtn.contentEdgeInsets = UIEdgeInsetsMake(0, 6, 0, 6);
+    [rightView addSubview:batchBtn];
+
+    // Refresh button (right)
+    UIButton *refreshBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    refreshBtn.frame = CGRectMake(56, 0, 40, 32);
+    UIImage *refreshImg = nil;
+    if (@available(iOS 13.0, *)) {
+        refreshImg = [UIImage systemImageNamed:@"arrow.clockwise"];
+    }
+    if (!refreshImg) {
+        // fallback to bundle asset named "icon_refresh" if you have one
+        refreshImg = [UIImage imageNamed:@"icon_refresh"];
+    }
+    [refreshBtn setImage:refreshImg forState:UIControlStateNormal];
+    refreshBtn.tintColor = [UIColor systemBlueColor];
+    [refreshBtn addTarget:self action:@selector(refreshTapped) forControlEvents:UIControlEventTouchUpInside];
+    refreshBtn.contentEdgeInsets = UIEdgeInsetsMake(0, 6, 0, 6);
+    [rightView addSubview:refreshBtn];
+
+    UIBarButtonItem *custom = [[UIBarButtonItem alloc] initWithCustomView:rightView];
+    self.navigationItem.rightBarButtonItem = custom;
 
     // Observe profile change notifications to reload mods when profile gameDir changed
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(profileDidChange:) name:@"ProfileDidChangeNotification" object:nil];
@@ -46,7 +72,6 @@
 }
 
 - (void)enterBatchMode:(id)sender {
-    // Toggle editing mode to allow multi-selection and batch operations.
     BOOL willEdit = !self.isEditing;
     [self setEditing:willEdit animated:YES];
 }
@@ -70,7 +95,6 @@
 - (void)profileDidChange:(NSNotification *)note {
     NSString *profileName = note.userInfo[@"profileName"];
     if (!profileName || [profileName length] == 0) return;
-    // If currently viewing the same profile, refresh mods to reflect new gameDir
     if (!self.profileName || [self.profileName isEqualToString:profileName]) {
         [self refreshTapped];
     }
@@ -103,7 +127,6 @@
 - (NSArray<NSIndexPath *> *)selectedIndexPathsSortedDescending {
     NSArray<NSIndexPath *> *selected = [self.tableView indexPathsForSelectedRows];
     if (!selected) return @[];
-    // Sort descending for safe removal
     selected = [selected sortedArrayUsingComparator:^NSComparisonResult(NSIndexPath *a, NSIndexPath *b) {
         if (a.row > b.row) return NSOrderedAscending;
         if (a.row < b.row) return NSOrderedDescending;
@@ -120,7 +143,6 @@
         [self presentViewController:ac animated:YES completion:nil];
         return;
     }
-    // Toggle each selected mod
     NSMutableArray<NSIndexPath *> *toReload = [NSMutableArray array];
     for (NSIndexPath *ip in selected) {
         ModItem *m = self.mods[ip.row];
@@ -169,7 +191,7 @@
     [self presentViewController:ac animated:YES completion:nil];
 }
 
-#pragma mark - Table view data source/delegate
+#pragma mark - Table View
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 1; }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.mods.count; }
