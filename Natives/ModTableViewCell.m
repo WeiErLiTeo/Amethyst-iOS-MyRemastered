@@ -3,8 +3,8 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
-//  Updated: handle file:// and absolute local paths, cache/remote download fallback,
-//  placeholder fallback if system image missing, loader badges original rendering.
+//  Updated: multi-badge support, original rendering, fixed layout & hit areas.
+//  Removed open-link button.
 //
 
 #import "ModTableViewCell.h"
@@ -92,6 +92,7 @@
     }
 
     CGFloat nameX = x;
+    // if first badge visible, shift nameX to after badges area for alignment
     if (!self.loaderBadgeView1.hidden) {
         CGFloat used = 0;
         for (int i = 0; i < 3; i++) {
@@ -103,6 +104,7 @@
     self.nameLabel.frame = CGRectMake(nameX, padding, contentWidth - (nameX - x), 20);
     self.descLabel.frame = CGRectMake(x, CGRectGetMaxY(self.nameLabel.frame) + 4, contentWidth, 36);
 
+    // buttons on right: delete | toggle
     CGFloat btnW = 60;
     CGFloat spacing = 8;
     CGFloat right = self.contentView.bounds.size.width - padding;
@@ -148,84 +150,15 @@
     NSString *toggleTitle = mod.disabled ? @"启用" : @"禁用";
     [self.toggleButton setTitle:toggleTitle forState:UIControlStateNormal];
 
-    // mod icon with robust handling
-    UIImage *placeholder = nil;
-    if (@available(iOS 13.0, *)) {
-        placeholder = [UIImage systemImageNamed:@"cube.box"];
-    }
-    if (!placeholder) {
-        placeholder = [UIImage imageNamed:@"mod_placeholder"]; // add this asset to resources
-    }
+    // mod icon
+    UIImage *placeholder = [UIImage systemImageNamed:@"cube.box"];
     self.modIconView.image = placeholder;
-
     if (mod.iconURL.length > 0) {
-        // Support: file://..., absolute path "/...", or remote URL
-        NSString *iconStr = mod.iconURL;
-        BOOL handled = NO;
-
-        // If it looks like a file URL
-        NSURL *maybeURL = [NSURL URLWithString:iconStr];
-        if (maybeURL && maybeURL.isFileURL) {
-            NSString *localPath = maybeURL.path;
-            if ([[NSFileManager defaultManager] fileExistsAtPath:localPath]) {
-                NSData *d = [NSData dataWithContentsOfFile:localPath];
-                UIImage *img = [UIImage imageWithData:d];
-                if (img) {
-                    self.modIconView.image = img;
-                    handled = YES;
-                }
-            }
-        }
-
-        // If not yet handled and iconStr is an absolute filesystem path
-        if (!handled && [iconStr hasPrefix:@"/"]) {
-            if ([[NSFileManager defaultManager] fileExistsAtPath:iconStr]) {
-                NSData *d = [NSData dataWithContentsOfFile:iconStr];
-                UIImage *img = [UIImage imageWithData:d];
-                if (img) {
-                    self.modIconView.image = img;
-                    handled = YES;
-                }
-            }
-        }
-
-        // If still not handled, check cache path (ModService provides a cache path for URL strings)
-        if (!handled) {
-            NSString *cachePath = [[ModService sharedService] iconCachePathForURL:iconStr];
-            if (cachePath && [[NSFileManager defaultManager] fileExistsAtPath:cachePath]) {
-                NSData *d = [NSData dataWithContentsOfFile:cachePath];
-                UIImage *img = [UIImage imageWithData:d];
-                if (img) {
-                    self.modIconView.image = img;
-                    handled = YES;
-                }
-            }
-            // If not cached and looks like remote URL, download async into cache and update
-            if (!handled) {
-                NSURL *remoteURL = [NSURL URLWithString:iconStr];
-                if (remoteURL && !remoteURL.isFileURL) {
-                    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-                        NSData *d = [NSData dataWithContentsOfURL:remoteURL];
-                        if (!d) return;
-                        // Write to cache if possible
-                        if (cachePath) {
-                            NSString *dir = [cachePath stringByDeletingLastPathComponent];
-                            if (dir && ![[NSFileManager defaultManager] fileExistsAtPath:dir]) {
-                                [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
-                            }
-                            [d writeToFile:cachePath atomically:YES];
-                        }
-                        UIImage *img = [UIImage imageWithData:d];
-                        if (!img) return;
-                        dispatch_async(dispatch_get_main_queue(), ^{
-                            // Ensure cell still represents same mod
-                            if ([self.currentMod.filePath isEqualToString:mod.filePath]) {
-                                self.modIconView.image = img;
-                            }
-                        });
-                    });
-                }
-            }
+        NSString *cachePath = [[ModService sharedService] iconCachePathForURL:mod.iconURL];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:cachePath]) {
+            NSData *d = [NSData dataWithContentsOfFile:cachePath];
+            UIImage *img = [UIImage imageWithData:d];
+            if (img) self.modIconView.image = img;
         }
     }
 
