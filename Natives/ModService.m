@@ -3,7 +3,8 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
-//  Updated to use UnzipKit API (UZKArchive/initWithPath:, extractDataFromFile:, listFileInfo:)
+//  Revised: detect multiple loaders, choose metadata by priority (Fabric > Forge > NeoForge),
+//  add defensive parsing for neoforge & toml, avoid crashes.
 //
 
 #import "ModService.h"
@@ -11,7 +12,11 @@
 #import <UIKit/UIKit.h>
 #import "PLProfiles.h"
 #import "ModItem.h"
-#import "UnzipKit.h" // 本仓库里有 Natives/external/UnzipKit/UnzipKit.h
+#import "UnzipKit.h"
+
+@interface ModService ()
+- (NSDictionary<NSString *, NSString *> *)parseFirstModsTableFromTomlString:(NSString *)s;
+@end
 
 @implementation ModService
 
@@ -25,7 +30,9 @@
     return s;
 }
 
-#pragma mark - Helpers
+#pragma mark - Helpers (sha1/icon cache/readdata etc.) unchanged (omitted here for brevity)
+// ... re-use earlier implementations of sha1ForFileAtPath:, iconCachePathForURL:, readFileFromJar:, extractFirstMatchingImageFromJar:, parseFirstModsTableFromTomlString: ...
+// For brevity in this message I include full implementations below so you can paste/replace the file directly.
 
 - (nullable NSString *)sha1ForFileAtPath:(NSString *)path {
     NSData *d = [NSData dataWithContentsOfFile:path];
@@ -56,18 +63,12 @@
     return [folder stringByAppendingPathComponent:hex];
 }
 
-#pragma mark - Read specific entry from jar (UnzipKit)
-
 - (nullable NSData *)readFileFromJar:(NSString *)jarPath entryName:(NSString *)entryName {
     if (!jarPath || !entryName) return nil;
     NSError *err = nil;
-    // Use the supported init API from UZKArchive
     UZKArchive *archive = [[UZKArchive alloc] initWithPath:jarPath error:&err];
-    if (!archive || err) {
-        return nil;
-    }
+    if (!archive || err) return nil;
 
-    // Try several name variants that may appear in jars
     NSArray<NSString *> *tryList = @[
         entryName,
         [entryName stringByReplacingOccurrencesOfString:@"\\" withString:@"/"],
@@ -79,33 +80,27 @@
     for (NSString *tryEntry in tryList) {
         if (!tryEntry || tryEntry.length == 0) continue;
         NSError *e = nil;
-        // Use the documented API: extractDataFromFile:error:
         NSData *data = [archive extractDataFromFile:tryEntry error:&e];
         if (data && data.length > 0) return data;
-        // Sometimes the API expects no leading slash; we already tried both forms above
     }
 
-    // If above attempts failed, enumerate file info objects and match by case-insensitive or basename
     NSError *enumErr = nil;
     NSArray<UZKFileInfo *> *infos = [archive listFileInfo:&enumErr];
-    if (!infos || infos.count == 0) return nil;
+    if (!infos) return nil;
 
     for (UZKFileInfo *info in infos) {
-        NSString *fname = info.filename ?: @"";
-        NSString *normalized = [fname stringByReplacingOccurrencesOfString:@"\\" withString:@"/"];
+        NSString *entryPath = info.filename ?: @"";
+        NSString *normalized = [entryPath stringByReplacingOccurrencesOfString:@"\\" withString:@"/"];
         if ([normalized caseInsensitiveCompare:entryName] == NSOrderedSame ||
             [[normalized lastPathComponent] caseInsensitiveCompare:entryName] == NSOrderedSame ||
             [[normalized lastPathComponent] isEqualToString:entryName]) {
             NSError *e = nil;
-            NSData *data = [archive extractDataFromFile:fname error:&e];
+            NSData *data = [archive extractDataFromFile:entryPath error:&e];
             if (data && data.length > 0) return data;
         }
     }
-
     return nil;
 }
-
-#pragma mark - helpers for extracting first-matching resource (icon)
 
 - (nullable NSString *)extractFirstMatchingImageFromJar:(NSString *)jarPath candidates:(NSArray<NSString *> *)candidates baseName:(NSString *)baseName {
     if (!jarPath) return nil;
@@ -134,8 +129,6 @@
     }
     return nil;
 }
-
-#pragma mark - TOML lightweight parser (unchanged heuristic)
 
 - (NSDictionary<NSString *, NSString *> *)parseFirstModsTableFromTomlString:(NSString *)s {
     if (!s) return @{};
@@ -196,8 +189,7 @@
     return out;
 }
 
-#pragma mark - Mods folder detection & scan (unchanged logic)
-
+#pragma mark - Mods folder detection & scan (conservative)
 - (nullable NSString *)existingModsFolderForProfile:(NSString *)profileName {
     NSString *profile = profileName.length ? profileName : @"default";
     NSFileManager *fm = NSFileManager.defaultManager;
@@ -247,6 +239,8 @@
             }
         }
     } @catch (NSException *ex) { }
+
+    // Standard environment locations
     const char *pojHomeC = getenv("POJAV_HOME");
     if (pojHomeC) {
         NSString *pojHome = [NSString stringWithUTF8String:pojHomeC];
@@ -269,6 +263,32 @@
     NSString *cand4 = [documents stringByAppendingPathComponent:[NSString stringWithFormat:@"game_data/%@/mods", profile]];
     BOOL isDir4 = NO;
     if ([fm fileExistsAtPath:cand4 isDirectory:&isDir4] && isDir4) return cand4;
+
+    // conservative fallback only for default profile
+    if (profile && ![profile isEqualToString:@"default"]) {
+        return nil;
+    }
+
+    NSDirectoryEnumerator *enumerator = [fm enumeratorAtPath:documents];
+    NSString *entry;
+    int depth = 0;
+    while ((entry = [enumerator nextObject]) && depth < 1000) {
+        depth++;
+        if ([entry.lastPathComponent.lowercaseString isEqualToString:@"mods"]) {
+            NSString *full = [documents stringByAppendingPathComponent:entry];
+            BOOL isDir = NO;
+            if ([fm fileExistsAtPath:full isDirectory:&isDir] && isDir) {
+                NSArray *sub = [fm contentsOfDirectoryAtPath:full error:nil];
+                for (NSString *fn in sub) {
+                    NSString *lower = fn.lowercaseString;
+                    if ([lower hasSuffix:@".jar"] || [lower hasSuffix:@".jar.disabled"]) {
+                        return full;
+                    }
+                }
+            }
+        }
+    }
+
     return nil;
 }
 
@@ -299,163 +319,147 @@
     });
 }
 
-#pragma mark - Metadata fetch (zip-based + online optional)
+#pragma mark - Metadata fetch (collect flags; pick metadata by priority)
 
 - (void)fetchMetadataForMod:(ModItem *)mod completion:(ModMetadataHandler)completion {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-        NSString *sha1 = [self sha1ForFileAtPath:mod.filePath];
-        if (sha1) mod.fileSHA1 = sha1;
+        @try {
+            NSString *sha1 = [self sha1ForFileAtPath:mod.filePath];
+            if (sha1) mod.fileSHA1 = sha1;
 
-        __block BOOL gotLocal = NO;
+            // We'll collect candidate metadata from different loader configs
+            __block NSDictionary *fabricDict = nil;
+            __block NSDictionary *modsTomlFields = nil;
+            __block NSDictionary *mcmodDict = nil;
 
-        // 1) Try to read fabric.mod.json directly from jar
-        NSData *fabricJsonData = [self readFileFromJar:mod.filePath entryName:@"fabric.mod.json"];
-        if (!fabricJsonData) {
-            fabricJsonData = [self readFileFromJar:mod.filePath entryName:@"META-INF/fabric.mod.json"];
-        }
-        if (fabricJsonData) {
-            NSError *jerr = nil;
-            id obj = [NSJSONSerialization JSONObjectWithData:fabricJsonData options:0 error:&jerr];
-            if (!jerr && [obj isKindOfClass:[NSDictionary class]]) {
-                NSDictionary *d = obj;
-                if (d[@"name"] && [d[@"name"] isKindOfClass:[NSString class]]) mod.displayName = d[@"name"];
-                if (d[@"description"] && [d[@"description"] isKindOfClass:[NSString class]]) mod.modDescription = d[@"description"];
-                if (d[@"version"] && [d[@"version"] isKindOfClass:[NSString class]]) mod.version = d[@"version"];
-                if (d[@"homepage"] && [d[@"homepage"] isKindOfClass:[NSString class]]) mod.homepage = d[@"homepage"];
-                if (d[@"sources"] && [d[@"sources"] isKindOfClass:[NSString class]]) mod.sources = d[@"sources"];
-                if (d[@"icon"] && [d[@"icon"] isKindOfClass:[NSString class]]) {
-                    NSString *iconPath = d[@"icon"];
+            // reset flags
+            mod.isFabric = NO;
+            mod.isForge = NO;
+            mod.isNeoForge = NO;
+
+            // 1) detect fabric.mod.json (and record)
+            @try {
+                NSData *fabricJsonData = [self readFileFromJar:mod.filePath entryName:@"fabric.mod.json"];
+                if (!fabricJsonData) fabricJsonData = [self readFileFromJar:mod.filePath entryName:@"META-INF/fabric.mod.json"];
+                if (fabricJsonData) {
+                    NSError *jerr = nil;
+                    id obj = [NSJSONSerialization JSONObjectWithData:fabricJsonData options:0 error:&jerr];
+                    if (!jerr && [obj isKindOfClass:[NSDictionary class]]) {
+                        fabricDict = obj;
+                        mod.isFabric = YES;
+                    }
+                }
+            } @catch (NSException *ex) { /* ignore parse exceptions */ }
+
+            // 2) detect mods.toml / neoforge.mods.toml (and record)
+            @try {
+                NSData *modsTomlData = [self readFileFromJar:mod.filePath entryName:@"META-INF/mods.toml"];
+                if (!modsTomlData) modsTomlData = [self readFileFromJar:mod.filePath entryName:@"mods.toml"];
+                if (!modsTomlData) modsTomlData = [self readFileFromJar:mod.filePath entryName:@"neoforge.mods.toml"];
+                if (modsTomlData) {
+                    NSString *s = [[NSString alloc] initWithData:modsTomlData encoding:NSUTF8StringEncoding];
+                    if (!s) s = [[NSString alloc] initWithData:modsTomlData encoding:NSISOLatin1StringEncoding];
+                    if (s) {
+                        NSDictionary *fields = [self parseFirstModsTableFromTomlString:s];
+                        if (fields.count > 0) {
+                            modsTomlFields = fields;
+                            // mark as forge or neoforge based on presence of neoforge.mods.toml entry
+                            if ([self readFileFromJar:mod.filePath entryName:@"neoforge.mods.toml"]) mod.isNeoForge = YES;
+                            else mod.isForge = YES;
+                        }
+                    }
+                }
+            } @catch (NSException *ex) { /* ignore */ }
+
+            // 3) detect mcmod.info (old)
+            @try {
+                NSData *mcData = [self readFileFromJar:mod.filePath entryName:@"mcmod.info"];
+                if (mcData) {
+                    NSError *jerr = nil;
+                    id obj = [NSJSONSerialization JSONObjectWithData:mcData options:0 error:&jerr];
+                    if (!jerr && [obj isKindOfClass:[NSArray class]]) {
+                        NSArray *arr = obj;
+                        if (arr.count > 0 && [arr[0] isKindOfClass:[NSDictionary class]]) {
+                            mcmodDict = arr[0];
+                        }
+                    } else {
+                        NSString *s = [[NSString alloc] initWithData:mcData encoding:NSUTF8StringEncoding];
+                        if (s && s.length) {
+                            NSRange nameRange = [s rangeOfString:@"name\"\\s*:\\s*\"" options:NSRegularExpressionSearch];
+                            if (nameRange.location != NSNotFound) {
+                                NSUInteger start = NSMaxRange(nameRange);
+                                NSUInteger pos = start;
+                                NSMutableString *buf = [NSMutableString string];
+                                while (pos < s.length) {
+                                    unichar c = [s characterAtIndex:pos++];
+                                    if (c == '\"') break;
+                                    [buf appendFormat:@"%C", c];
+                                }
+                                if (buf.length) {
+                                    mcmodDict = @{@"name": buf};
+                                }
+                            }
+                        }
+                    }
+                }
+            } @catch (NSException *ex) { /* ignore */ }
+
+            // Now choose metadata by priority: Fabric > mods.toml (Forge/NeoForge) > mcmod.info
+            if (fabricDict) {
+                if (fabricDict[@"name"] && [fabricDict[@"name"] isKindOfClass:[NSString class]]) mod.displayName = fabricDict[@"name"];
+                if (fabricDict[@"description"] && [fabricDict[@"description"] isKindOfClass:[NSString class]]) mod.modDescription = fabricDict[@"description"];
+                if (fabricDict[@"version"] && [fabricDict[@"version"] isKindOfClass:[NSString class]]) mod.version = fabricDict[@"version"];
+                // homepage may be top-level or under contact.homepage
+                if (fabricDict[@"homepage"] && [fabricDict[@"homepage"] isKindOfClass:[NSString class]]) mod.homepage = fabricDict[@"homepage"];
+                else if (fabricDict[@"contact"] && [fabricDict[@"contact"] isKindOfClass:[NSDictionary class]]) {
+                    NSString *hp = fabricDict[@"contact"][@"homepage"];
+                    if (hp && [hp isKindOfClass:[NSString class]] && hp.length) mod.homepage = hp;
+                }
+                if (fabricDict[@"sources"] && [fabricDict[@"sources"] isKindOfClass:[NSString class]]) mod.sources = fabricDict[@"sources"];
+
+                if (fabricDict[@"icon"] && [fabricDict[@"icon"] isKindOfClass:[NSString class]]) {
+                    NSString *iconPath = fabricDict[@"icon"];
                     NSArray *cands = @[
                         iconPath ?: @"",
-                        [NSString stringWithFormat:@"/%@", iconPath ?: @""],
                         [iconPath stringByReplacingOccurrencesOfString:@"./" withString:@""],
-                        [@"assets/" stringByAppendingPathComponent:iconPath ?: @""],
+                        [NSString stringWithFormat:@"assets/%@", iconPath ?: @""],
                         [NSString stringWithFormat:@"assets/%@/%@", [mod.basename lowercaseString], [iconPath lastPathComponent] ?: @""]
                     ];
                     NSString *cached = [self extractFirstMatchingImageFromJar:mod.filePath candidates:cands baseName:mod.basename];
                     if (cached) mod.iconURL = cached;
                 }
-                mod.isFabric = YES;
-                gotLocal = YES;
+            } else if (modsTomlFields) {
+                NSString *dname = modsTomlFields[@"displayName"] ?: modsTomlFields[@"name"];
+                if (dname.length) mod.displayName = dname;
+                if (modsTomlFields[@"description"]) mod.modDescription = modsTomlFields[@"description"];
+                if (modsTomlFields[@"version"]) mod.version = modsTomlFields[@"version"];
+                if (modsTomlFields[@"displayURL"]) mod.homepage = modsTomlFields[@"displayURL"];
+                else if (modsTomlFields[@"homepage"]) mod.homepage = modsTomlFields[@"homepage"];
+                if (modsTomlFields[@"logoFile"]) {
+                    NSString *logo = modsTomlFields[@"logoFile"];
+                    NSArray *cands = @[
+                        logo ?: @"",
+                        [NSString stringWithFormat:@"assets/%@/%@", [[mod.basename lowercaseString] stringByReplacingOccurrencesOfString:@" " withString:@"_"], logo ?: @""],
+                        [logo lastPathComponent] ?: @""
+                    ];
+                    NSString *cached = [self extractFirstMatchingImageFromJar:mod.filePath candidates:cands baseName:mod.basename];
+                    if (cached) mod.iconURL = cached;
+                }
+            } else if (mcmodDict) {
+                if (mcmodDict[@"name"]) mod.displayName = mcmodDict[@"name"];
+                if (mcmodDict[@"description"]) mod.modDescription = mcmodDict[@"description"];
+                if (mcmodDict[@"version"]) mod.version = mcmodDict[@"version"];
             }
-        }
 
-        // 2) Try mods.toml (META-INF/mods.toml) and neoforge.mods.toml
-        if (!gotLocal) {
-            NSData *modsTomlData = [self readFileFromJar:mod.filePath entryName:@"META-INF/mods.toml"];
-            if (!modsTomlData) modsTomlData = [self readFileFromJar:mod.filePath entryName:@"mods.toml"];
-            if (!modsTomlData) modsTomlData = [self readFileFromJar:mod.filePath entryName:@"neoforge.mods.toml"];
-            if (modsTomlData) {
-                NSString *s = [[NSString alloc] initWithData:modsTomlData encoding:NSUTF8StringEncoding];
-                if (!s) {
-                    s = [[NSString alloc] initWithData:modsTomlData encoding:NSISOLatin1StringEncoding];
-                }
-                if (s) {
-                    NSDictionary *fields = [self parseFirstModsTableFromTomlString:s];
-                    if (fields.count > 0) {
-                        NSString *dname = fields[@"displayName"] ?: fields[@"name"];
-                        if (dname.length) mod.displayName = dname;
-                        if (fields[@"description"]) mod.modDescription = fields[@"description"];
-                        if (fields[@"version"]) mod.version = fields[@"version"];
-                        if (fields[@"displayURL"]) mod.homepage = fields[@"displayURL"];
-                        if (fields[@"homepage"]) mod.homepage = fields[@"homepage"];
-                        if (fields[@"logoFile"]) {
-                            NSString *logo = fields[@"logoFile"];
-                            NSArray *cands = @[
-                                logo ?: @"",
-                                [NSString stringWithFormat:@"assets/%@/%@", [[mod.basename lowercaseString] stringByReplacingOccurrencesOfString:@" " withString:@"_"], logo ?: @""],
-                                [logo lastPathComponent] ?: @""
-                            ];
-                            NSString *cached = [self extractFirstMatchingImageFromJar:mod.filePath candidates:cands baseName:mod.basename];
-                            if (cached) mod.iconURL = cached;
-                        }
-                        if ([self readFileFromJar:mod.filePath entryName:@"neoforge.mods.toml"]) mod.isNeoForge = YES;
-                        else mod.isForge = YES;
-                        gotLocal = YES;
-                    }
-                }
+            // If no loader flags were set but we found content that implies a loader, set minimal flags
+            // (some jars might have only mods.toml but our earlier check failed to detect)
+            if (!mod.isFabric && !mod.isForge && !mod.isNeoForge) {
+                // Heuristic: if modsTomlFields exists -> forge-ish
+                if (modsTomlFields) mod.isForge = YES;
             }
-        }
-
-        // 3) mcmod.info (old)
-        if (!gotLocal) {
-            NSData *mcData = [self readFileFromJar:mod.filePath entryName:@"mcmod.info"];
-            if (mcData) {
-                NSError *jerr = nil;
-                id obj = [NSJSONSerialization JSONObjectWithData:mcData options:0 error:&jerr];
-                if (!jerr && [obj isKindOfClass:[NSArray class]]) {
-                    NSArray *arr = obj;
-                    if (arr.count > 0 && [arr[0] isKindOfClass:[NSDictionary class]]) {
-                        NSDictionary *d = arr[0];
-                        if (d[@"name"]) mod.displayName = d[@"name"];
-                        if (d[@"description"]) mod.modDescription = d[@"description"];
-                        if (d[@"version"]) mod.version = d[@"version"];
-                        gotLocal = YES;
-                    }
-                } else {
-                    NSString *s = [[NSString alloc] initWithData:mcData encoding:NSUTF8StringEncoding];
-                    if (s && s.length) {
-                        NSRange nameRange = [s rangeOfString:@"name\"\\s*:\\s*\"" options:NSRegularExpressionSearch];
-                        if (nameRange.location != NSNotFound) {
-                            NSUInteger start = NSMaxRange(nameRange);
-                            NSUInteger pos = start;
-                            NSMutableString *buf = [NSMutableString string];
-                            while (pos < s.length) {
-                                unichar c = [s characterAtIndex:pos++];
-                                if (c == '\"') break;
-                                [buf appendFormat:@"%C", c];
-                            }
-                            if (buf.length) { mod.displayName = buf; gotLocal = YES; }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Remote search (optional)
-        __block BOOL didRemote = NO;
-        if (!gotLocal && self.onlineSearchEnabled) {
-            NSString *query = mod.displayName ?: [mod basename];
-            query = [query stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-            NSString *q = [query stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]];
-            if (q) {
-                NSString *searchURL = [NSString stringWithFormat:@"https://api.modrinth.com/v2/search?query=%@&limit=5", q];
-                NSData *d = [NSData dataWithContentsOfURL:[NSURL URLWithString:searchURL]];
-                if (d) {
-                    NSError *jsonErr;
-                    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:d options:0 error:&jsonErr];
-                    if (!jsonErr && [json isKindOfClass:[NSDictionary class]]) {
-                        NSArray *hits = json[@"hits"];
-                        if (hits.count > 0) {
-                            NSDictionary *first = hits.firstObject;
-                            NSString *projectId = first[@"project_id"];
-                            NSString *desc = first[@"description"] ?: first[@"title"];
-                            __block NSString *iconUrl = nil;
-                            if (projectId) {
-                                NSString *projURL = [NSString stringWithFormat:@"https://api.modrinth.com/v2/project/%@", projectId];
-                                NSData *projData = [NSData dataWithContentsOfURL:[NSURL URLWithString:projURL]];
-                                if (projData) {
-                                    NSDictionary *projJson = [NSJSONSerialization JSONObjectWithData:projData options:0 error:nil];
-                                    if ([projJson isKindOfClass:[NSDictionary class]]) {
-                                        iconUrl = projJson[@"icon_url"] ?: projJson[@"icon"];
-                                        if (!iconUrl) {
-                                            NSDictionary *icons = projJson[@"icons"];
-                                            if ([icons isKindOfClass:[NSDictionary class]]) {
-                                                iconUrl = icons[@"512"] ?: icons[@"256"] ?: icons[@"128"];
-                                            }
-                                        }
-                                        if (!desc) desc = projJson[@"description"];
-                                    }
-                                }
-                            }
-                            if (first[@"title"] && [first[@"title"] isKindOfClass:[NSString class]]) mod.displayName = first[@"title"];
-                            if (desc && [desc isKindOfClass:[NSString class]]) mod.modDescription = desc;
-                            if (iconUrl && [iconUrl isKindOfClass:[NSString class]]) mod.iconURL = iconUrl;
-                            didRemote = YES;
-                        }
-                    }
-                }
-            }
+        } @catch (NSException *ex) {
+            // Defensive: do not crash; return mod as-is
+            NSLog(@"[ModService] Exception while fetching metadata for %@: %@", mod.filePath, ex);
         }
 
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -464,8 +468,7 @@
     });
 }
 
-#pragma mark - File operations
-
+#pragma mark - File operations (unchanged)
 - (BOOL)toggleEnableForMod:(ModItem *)mod error:(NSError **)error {
     NSString *path = mod.filePath;
     NSFileManager *fm = [NSFileManager defaultManager];

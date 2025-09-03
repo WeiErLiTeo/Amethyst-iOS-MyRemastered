@@ -186,6 +186,25 @@ add_executable(AngelAuraAmethyst
   ModsManagerViewController.m
 )
 
+# Add ModLoaderIcons PNG files into the app bundle Resources/ModLoaderIcons so they are available at runtime.
+# This will copy all *.png under Natives/ModLoaderIcons into the bundle at Resources/ModLoaderIcons/<name>.png
+set(MODLOADER_ICONS_DIR "${CMAKE_CURRENT_LIST_DIR}/ModLoaderIcons")
+if(EXISTS "${MODLOADER_ICONS_DIR}")
+  file(GLOB MODLOADER_ICON_FILES "${MODLOADER_ICONS_DIR}/*.png")
+  if(MODLOADER_ICON_FILES)
+    foreach(_icon ${MODLOADER_ICON_FILES})
+      get_filename_component(_name ${_icon} NAME)
+      message(STATUS "Including mod loader icon in bundle: ${_name}")
+      # Place into Resources/ModLoaderIcons inside the .app bundle so your code can find resourcePath/ModLoaderIcons/...
+      set_source_files_properties(${_icon} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/ModLoaderIcons")
+    endforeach()
+    # Attach the resource files to the main executable target so CMake copies them into the bundle
+    target_sources(AngelAuraAmethyst PRIVATE ${MODLOADER_ICON_FILES})
+  endif()
+else()
+  message(STATUS "ModLoaderIcons directory not found: ${MODLOADER_ICONS_DIR}")
+endif()
+
 if("${CMAKE_HOST_SYSTEM_NAME}" MATCHES "Linux|^GNU$|Android")
   target_sources(AngelAuraAmethyst PUBLIC non_darwin_utils.m)
 endif()

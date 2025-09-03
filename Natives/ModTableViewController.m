@@ -3,17 +3,17 @@
 //  AmethystMods
 //
 //  Created by Copilot on 2025-08-22.
+//  Updated: removed online-search & open-link, added batch disable/delete, listen to profile change notifications.
+//  Fixed compile error by using UIBarButtonItemStylePlain and tintColor for destructive appearance.
 //
 
 #import "ModTableViewController.h"
-#import "ModService.h"
 #import "ModItem.h"
+#import "ModService.h"
 #import "ModTableViewCell.h"
 
 @interface ModTableViewController () <ModTableViewCellDelegate>
-
-@property (nonatomic, strong) NSMutableArray<ModItem *> *mods;
-
+@property (nonatomic, strong) NSArray<ModItem *> *mods;
 @end
 
 @implementation ModTableViewController
@@ -21,61 +21,157 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"Mods";
-    self.mods = [NSMutableArray array];
     [self.tableView registerClass:[ModTableViewCell class] forCellReuseIdentifier:@"ModCell"];
     self.tableView.rowHeight = 76;
-    self.tableView.tableFooterView = [UIView new];
+    self.tableView.allowsSelectionDuringEditing = YES;
+    self.tableView.allowsMultipleSelectionDuringEditing = YES;
 
-    // initial scan
-    [self reloadMods];
+    // Edit button for batch operations
+    self.navigationItem.leftBarButtonItem = self.editButtonItem;
 
-    // optionally add pull to refresh
-    UIRefreshControl *rc = [UIRefreshControl new];
-    [rc addTarget:self action:@selector(reloadMods) forControlEvents:UIControlEventValueChanged];
-    self.refreshControl = rc;
+    // Refresh button (rightmost)
+    UIBarButtonItem *refresh = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshTapped)];
+    self.navigationItem.rightBarButtonItem = refresh;
+
+    // Observe profile change notifications to reload mods when profile gameDir changed
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(profileDidChange:) name:@"ProfileDidChangeNotification" object:nil];
+
+    [self refreshTapped];
 }
 
-- (void)reloadMods {
-    NSString *profile = self.profileName ?: @"default";
-    [[ModService sharedService] scanModsForProfile:profile completion:^(NSArray<ModItem *> *mods) {
-        // ensure UI update on main thread
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self.mods removeAllObjects];
-            [self.mods addObjectsFromArray:mods];
-            [self.tableView reloadData];
-            [self.refreshControl endRefreshing];
-        });
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)setEditing:(BOOL)editing animated:(BOOL)animated {
+    [super setEditing:editing animated:animated];
+    [self.tableView setEditing:editing animated:animated];
+    [self.navigationController setToolbarHidden:!editing animated:YES];
+
+    if (editing) {
+        UIBarButtonItem *flex = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
+        UIBarButtonItem *batchToggle = [[UIBarButtonItem alloc] initWithTitle:@"批量禁用/启用" style:UIBarButtonItemStylePlain target:self action:@selector(batchToggleSelected:)];
+        UIBarButtonItem *batchDelete = [[UIBarButtonItem alloc] initWithTitle:@"批量删除" style:UIBarButtonItemStylePlain target:self action:@selector(batchDeleteSelected:)];
+        // Use tintColor to indicate destructive
+        batchDelete.tintColor = [UIColor systemRedColor];
+        self.toolbarItems = @[batchToggle, flex, batchDelete];
+    } else {
+        self.toolbarItems = nil;
+    }
+}
+
+- (void)profileDidChange:(NSNotification *)note {
+    NSString *profileName = note.userInfo[@"profileName"];
+    if (!profileName || [profileName length] == 0) return;
+    // If currently viewing the same profile, refresh mods to reflect new gameDir
+    if (!self.profileName || [self.profileName isEqualToString:profileName]) {
+        [self refreshTapped];
+    }
+}
+
+- (void)refreshTapped {
+    [[ModService sharedService] scanModsForProfile:self.profileName completion:^(NSArray<ModItem *> *mods) {
+        self.mods = mods ?: @[];
+        [self.tableView reloadData];
+
+        for (NSInteger i = 0; i < self.mods.count; i++) {
+            ModItem *m = self.mods[i];
+            [[ModService sharedService] fetchMetadataForMod:m completion:^(ModItem *item, NSError * _Nullable error) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    NSUInteger idx = [self.mods indexOfObjectPassingTest:^BOOL(ModItem * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                        return [obj.filePath isEqualToString:item.filePath];
+                    }];
+                    if (idx != NSNotFound) {
+                        NSIndexPath *path = [NSIndexPath indexPathForRow:idx inSection:0];
+                        [self.tableView reloadRowsAtIndexPaths:@[path] withRowAnimation:UITableViewRowAnimationNone];
+                    }
+                });
+            }];
+        }
     }];
 }
 
-#pragma mark - Table view data source
+#pragma mark - Batch actions
 
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return self.mods.count;
+- (NSArray<NSIndexPath *> *)selectedIndexPathsSortedDescending {
+    NSArray<NSIndexPath *> *selected = [self.tableView indexPathsForSelectedRows];
+    if (!selected) return @[];
+    // Sort descending for safe removal
+    selected = [selected sortedArrayUsingComparator:^NSComparisonResult(NSIndexPath *a, NSIndexPath *b) {
+        if (a.row > b.row) return NSOrderedAscending;
+        if (a.row < b.row) return NSOrderedDescending;
+        return NSOrderedSame;
+    }];
+    return selected;
 }
+
+- (void)batchToggleSelected:(id)sender {
+    NSArray<NSIndexPath *> *selected = [self.tableView indexPathsForSelectedRows];
+    if (!selected || selected.count == 0) {
+        UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"提示" message:@"未选择任何模组" preferredStyle:UIAlertControllerStyleAlert];
+        [ac addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:ac animated:YES completion:nil];
+        return;
+    }
+    // Toggle each selected mod
+    NSMutableArray<NSIndexPath *> *toReload = [NSMutableArray array];
+    for (NSIndexPath *ip in selected) {
+        ModItem *m = self.mods[ip.row];
+        NSError *err = nil;
+        BOOL ok = [[ModService sharedService] toggleEnableForMod:m error:&err];
+        if (!ok) {
+            NSLog(@"批量切换失败: %@", err.localizedDescription);
+        }
+        [toReload addObject:ip];
+    }
+    [self setEditing:NO animated:YES];
+    [self.tableView reloadRowsAtIndexPaths:toReload withRowAnimation:UITableViewRowAnimationAutomatic];
+}
+
+- (void)batchDeleteSelected:(id)sender {
+    NSArray<NSIndexPath *> *selected = [self selectedIndexPathsSortedDescending];
+    if (!selected || selected.count == 0) {
+        UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"提示" message:@"未选择任何模组" preferredStyle:UIAlertControllerStyleAlert];
+        [ac addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:ac animated:YES completion:nil];
+        return;
+    }
+    UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"确认删除" message:@"确定要删除所选模组吗？此操作不可恢复。" preferredStyle:UIAlertControllerStyleAlert];
+    [ac addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [ac addAction:[UIAlertAction actionWithTitle:@"删除" style:UIAlertActionStyleDestructive handler:^(UIAlertAction * _Nonnull action) {
+        NSMutableArray *newMods = [self.mods mutableCopy];
+        NSMutableArray<NSIndexPath *> *deletedIndexPaths = [NSMutableArray array];
+        for (NSIndexPath *ip in selected) {
+            if (ip.row < newMods.count) {
+                ModItem *m = newMods[ip.row];
+                NSError *err = nil;
+                if ([[ModService sharedService] deleteMod:m error:&err]) {
+                    [newMods removeObjectAtIndex:ip.row];
+                    [deletedIndexPaths addObject:ip];
+                } else {
+                    NSLog(@"删除失败: %@", err.localizedDescription);
+                }
+            }
+        }
+        self.mods = [newMods copy];
+        [self.tableView beginUpdates];
+        [self.tableView deleteRowsAtIndexPaths:deletedIndexPaths withRowAnimation:UITableViewRowAnimationAutomatic];
+        [self.tableView endUpdates];
+        [self setEditing:NO animated:YES];
+    }]];
+    [self presentViewController:ac animated:YES completion:nil];
+}
+
+#pragma mark - Table view data source/delegate
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 1; }
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.mods.count; }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     ModTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"ModCell" forIndexPath:indexPath];
     ModItem *m = self.mods[indexPath.row];
-    [cell configureWithMod:m];
     cell.delegate = self;
-
-    // lazy-load metadata (if not already filled)
-    if ((!m.modDescription || m.modDescription.length == 0) || (!m.iconURL || m.iconURL.length == 0)) {
-        [[ModService sharedService] fetchMetadataForMod:m completion:^(ModItem *item, NSError * _Nullable error) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                // reload the specific row if still visible
-                NSUInteger idx = [self.mods indexOfObjectPassingTest:^BOOL(ModItem * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-                    return [obj.filePath isEqualToString:item.filePath];
-                }];
-                if (idx != NSNotFound) {
-                    NSIndexPath *ip = [NSIndexPath indexPathForRow:idx inSection:0];
-                    [self.tableView reloadRowsAtIndexPaths:@[ip] withRowAnimation:UITableViewRowAnimationNone];
-                }
-            });
-        }];
-    }
-
+    [cell configureWithMod:m];
     return cell;
 }
 
@@ -88,14 +184,11 @@
     NSError *err = nil;
     BOOL ok = [[ModService sharedService] toggleEnableForMod:m error:&err];
     if (!ok) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"错误" message:err.localizedDescription ?: @"无法切换 mod 状态" preferredStyle:UIAlertControllerStyleAlert];
-            [ac addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
-            [self presentViewController:ac animated:YES completion:nil];
-        });
+        UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"错误" message:err.localizedDescription preferredStyle:UIAlertControllerStyleAlert];
+        [ac addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:ac animated:YES completion:nil];
     } else {
-        // update cell UI
-        [self.tableView reloadRowsAtIndexPaths:@[ip] withRowAnimation:UITableViewRowAnimationNone];
+        [self.tableView reloadRowsAtIndexPaths:@[ip] withRowAnimation:UITableViewRowAnimationAutomatic];
     }
 }
 
@@ -103,52 +196,22 @@
     NSIndexPath *ip = [self.tableView indexPathForCell:cell];
     if (!ip) return;
     ModItem *m = self.mods[ip.row];
-    UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"删除 Mod" message:[NSString stringWithFormat:@"确定删除 %@ ?", m.displayName ?: m.fileName] preferredStyle:UIAlertControllerStyleActionSheet];
+    UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"确认删除" message:m.displayName preferredStyle:UIAlertControllerStyleAlert];
+    [ac addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
     [ac addAction:[UIAlertAction actionWithTitle:@"删除" style:UIAlertActionStyleDestructive handler:^(UIAlertAction * _Nonnull action) {
         NSError *err = nil;
-        BOOL ok = [[ModService sharedService] deleteMod:m error:&err];
-        if (!ok) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                UIAlertController *errAc = [UIAlertController alertControllerWithTitle:@"错误" message:err.localizedDescription ?: @"删除失败" preferredStyle:UIAlertControllerStyleAlert];
-                [errAc addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
-                [self presentViewController:errAc animated:YES completion:nil];
-            });
-        } else {
-            // remove from list and update UI
-            [self.mods removeObjectAtIndex:ip.row];
+        if ([[ModService sharedService] deleteMod:m error:&err]) {
+            NSMutableArray *new = [self.mods mutableCopy];
+            [new removeObjectAtIndex:ip.row];
+            self.mods = [new copy];
             [self.tableView deleteRowsAtIndexPaths:@[ip] withRowAnimation:UITableViewRowAnimationAutomatic];
+        } else {
+            UIAlertController *errAc = [UIAlertController alertControllerWithTitle:@"删除失败" message:err.localizedDescription preferredStyle:UIAlertControllerStyleAlert];
+            [errAc addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil]];
+            [self presentViewController:errAc animated:YES completion:nil];
         }
     }]];
-    [ac addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
-    // for iPad present properly
-    UIPopoverPresentationController *pp = ac.popoverPresentationController;
-    if (pp && cell) {
-        pp.sourceView = cell;
-        pp.sourceRect = cell.bounds;
-    }
     [self presentViewController:ac animated:YES completion:nil];
-}
-
-#pragma mark - Table editing (swipe to delete)
-
-- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
-    return YES;
-}
-
-- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
-    if (editingStyle == UITableViewCellEditingStyleDelete) {
-        ModItem *m = self.mods[indexPath.row];
-        NSError *err = nil;
-        BOOL ok = [[ModService sharedService] deleteMod:m error:&err];
-        if (!ok) {
-            UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"错误" message:err.localizedDescription ?: @"删除失败" preferredStyle:UIAlertControllerStyleAlert];
-            [ac addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
-            [self presentViewController:ac animated:YES completion:nil];
-        } else {
-            [self.mods removeObjectAtIndex:indexPath.row];
-            [self.tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
-        }
-    }
 }
 
 @end

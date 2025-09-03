@@ -1,3 +1,11 @@
+//
+//  LauncherProfileEditorViewController.m
+//  Amethyst-iOS-MyRemastered
+//
+//  Fixed: safePathForEnv signature, added method prototypes for setupVersionPicker/changeVersionType,
+//  implemented UIPickerViewDataSource methods to avoid protocol warnings, defensive listFilesAtPath.
+//
+
 #import "LauncherNavigationController.h"
 #import "LauncherPreferences.h"
 #import "LauncherProfileEditorViewController.h"
@@ -7,7 +15,7 @@
 #import "ios_uikit_bridge.h"
 #import "utils.h"
 
-@interface LauncherProfileEditorViewController()<UIPickerViewDataSource, UIPickerViewDelegate>
+@interface LauncherProfileEditorViewController() <UIPickerViewDataSource, UIPickerViewDelegate>
 @property(nonatomic) NSString* oldName;
 
 @property(nonatomic) NSArray<NSDictionary *> *versionList;
@@ -16,6 +24,10 @@
 @property(nonatomic) UIPickerView* versionPickerView;
 @property(nonatomic) UIToolbar* versionPickerToolbar;
 @property(nonatomic) int versionSelectedAt;
+
+// forward declarations so calls in viewDidLoad compile
+- (void)setupVersionPicker;
+- (void)changeVersionType:(UISegmentedControl *)sender;
 @end
 
 @implementation LauncherProfileEditorViewController
@@ -53,11 +65,14 @@
     }
     NSArray *rendererKeys = getRendererKeys(YES);
     NSArray *rendererList = getRendererNames(YES);
-    NSArray *touchControlList = [self listFilesAtPath:[NSString stringWithFormat:@"%s/controlmap", getenv("POJAV_HOME")]];
-    NSArray *gamepadControlList = [self listFilesAtPath:[NSString stringWithFormat:@"%s/controlmap/gamepads", getenv("POJAV_HOME")]];
+
+    // Use safe listFilesAtPath: (defensive)
+    NSArray *touchControlList = [self listFilesAtPath:[self safePathForEnv:@"POJAV_HOME" subpath:@"controlmap"]];
+    NSArray *gamepadControlList = [self listFilesAtPath:[self safePathForEnv:@"POJAV_HOME" subpath:@"controlmap/gamepads"]];
+
     NSMutableArray *javaList = [getPrefObject(@"java.java_homes") allKeys].mutableCopy;
     [javaList sortUsingSelector:@selector(compare:)];
-    javaList[0] = @"(default)";
+    if (javaList.count > 0) javaList[0] = @"(default)";
 
     // Setup version picker
     [self setupVersionPicker];
@@ -76,7 +91,9 @@
             if (selected) {
                 NSArray *types = @[@"installed", @"release", @"snapshot", @"old_beta", @"old_alpha"];
                 NSString *type = selected[@"type"];
-                self.versionTypeControl.selectedSegmentIndex = [types indexOfObject:type];
+                NSInteger idx = [types indexOfObject:type];
+                if (idx != NSNotFound) self.versionTypeControl.selectedSegmentIndex = idx;
+                else self.versionTypeControl.selectedSegmentIndex = 0;
             } else {
                 // Version not found
                 self.versionTypeControl.selectedSegmentIndex = 0;
@@ -106,7 +123,7 @@
               @"icon": @"folder",
               @"title": @"preference.title.game_directory",
               @"type": self.typeTextField,
-              @"placeholder": [NSString stringWithFormat:@". -> /Documents/instances/%@", getPrefObject(@"general.game_directory")]
+              @"placeholder": [NSString stringWithFormat:@". -> /Documents/instances/%@", getPrefObject(@"general.game_directory") ?: @"(default)"]
             },
             // Video and renderer settings
             @{@"key": @"renderer",
@@ -150,6 +167,18 @@
     [super viewDidLoad];
 }
 
+#pragma mark - Safe env helper
+
+// Accept NSString* for envName to avoid incompatible-pointer warnings when passing @"POJAV_HOME"
+- (NSString *)safePathForEnv:(NSString *)envName subpath:(NSString *)sub {
+    if (!envName) return nil;
+    const char *envC = getenv([envName UTF8String]);
+    if (!envC) return nil;
+    NSString *home = [NSString stringWithUTF8String:envC];
+    if (!home || home.length == 0) return nil;
+    return [home stringByAppendingPathComponent:sub];
+}
+
 - (void)actionClose {
     [self.navigationController dismissViewControllerAnimated:YES completion:nil];
 }
@@ -187,6 +216,10 @@
     }
 
     [PLProfiles.current save];
+
+    // Notify other components that the profile changed (so mods list can refresh if needed)
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"ProfileDidChangeNotification" object:nil userInfo:@{@"profileName": self.profile[@"name"] ?: @""}];
+
     [self actionClose];
 
     // Call LauncherProfilesViewController's viewWillAppear
@@ -200,7 +233,16 @@
 }
 
 - (NSArray *)listFilesAtPath:(NSString *)path {
-    NSMutableArray *files = [NSFileManager.defaultManager contentsOfDirectoryAtPath:path error:nil].mutableCopy;
+    // Defensive: path may be nil or not a directory
+    if (!path || path.length == 0) return @[@"(default)"];
+    BOOL isDir = NO;
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:&isDir] || !isDir) {
+        return @[@"(default)"];
+    }
+    NSError *err = nil;
+    NSArray *items = [NSFileManager.defaultManager contentsOfDirectoryAtPath:path error:&err];
+    if (!items || err) return @[@"(default)"];
+    NSMutableArray *files = items.mutableCopy;
     for (int i = 0; i < files.count;) {
         if ([files[i] hasSuffix:@".json"]) {
             i++;
@@ -219,6 +261,7 @@
     self.versionPickerView.delegate = self;
     self.versionPickerView.dataSource = self;
     self.versionPickerToolbar = [[UIToolbar alloc] initWithFrame:CGRectMake(0.0, 0.0, self.view.frame.size.width, 44.0)];
+
     self.versionTypeControl = [[UISegmentedControl alloc] initWithItems:@[
         localize(@"Installed", nil),
         localize(@"Releases", nil),
@@ -232,16 +275,64 @@
         [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil],
         [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(versionClosePicker)]
     ];
+    self.versionSelectedAt = -1;
+    self.versionList = @[];
 }
 
-- (void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component {
-    if (self.versionList.count == 0) {
-        self.versionTextField.text = @"";
-        return;
-    }
-    self.versionSelectedAt = row;
-    self.versionTextField.text = [self pickerView:pickerView titleForRow:row forComponent:component];
+- (void)versionClosePicker {
+    [self.versionTextField endEditing:YES];
+    [self pickerView:self.versionPickerView didSelectRow:[self.versionPickerView selectedRowInComponent:0] inComponent:0];
 }
+
+- (void)changeVersionType:(UISegmentedControl *)sender {
+    NSArray *newVersionList = self.versionList;
+    if (sender || !self.versionList || self.versionList.count == 0) {
+        if (self.versionTypeControl.selectedSegmentIndex == 0) {
+            // installed
+            newVersionList = localVersionList ?: @[];
+        } else {
+            NSString *type = @[@"installed", @"release", @"snapshot", @"old_beta", @"old_alpha"][self.versionTypeControl.selectedSegmentIndex];
+            if (remoteVersionList) {
+                newVersionList = [remoteVersionList filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"(type == %@)", type]];
+            } else {
+                newVersionList = @[];
+            }
+        }
+    }
+
+    if (self.versionSelectedAt == -1) {
+        NSDictionary *selected = (id)[MinecraftResourceUtils findVersion:self.versionTextField.text inList:newVersionList];
+        if (selected) {
+            self.versionSelectedAt = [newVersionList indexOfObject:selected];
+        } else {
+            self.versionSelectedAt = -1;
+        }
+    } else {
+        // Find the most matching version for this type
+        NSObject *lastSelected = nil;
+        if (self.versionList.count > self.versionSelectedAt && self.versionSelectedAt >= 0) {
+            lastSelected = self.versionList[self.versionSelectedAt];
+        }
+        if (lastSelected != nil) {
+            NSObject *nearest = [MinecraftResourceUtils findNearestVersion:lastSelected expectedType:self.versionTypeControl.selectedSegmentIndex];
+            if (nearest != nil) {
+                self.versionSelectedAt = [newVersionList indexOfObject:(id)nearest];
+            }
+        }
+        // Bound the index
+        if (newVersionList.count == 0) self.versionSelectedAt = -1;
+        else self.versionSelectedAt = MAX(0, MIN(self.versionSelectedAt, (int)newVersionList.count - 1));
+    }
+
+    self.versionList = newVersionList;
+    [self.versionPickerView reloadAllComponents];
+    if (self.versionSelectedAt != -1 && self.versionList.count > 0) {
+        [self.versionPickerView selectRow:self.versionSelectedAt inComponent:0 animated:NO];
+        [self pickerView:self.versionPickerView didSelectRow:self.versionSelectedAt inComponent:0];
+    }
+}
+
+#pragma mark - UIPickerViewDataSource / Delegate
 
 - (NSInteger)numberOfComponentsInPickerView:(UIPickerView *)thePickerView {
     return 1;
@@ -252,58 +343,25 @@
 }
 
 - (NSString *)pickerView:(UIPickerView *)pickerView titleForRow:(NSInteger)row forComponent:(NSInteger)component {
-    if (self.versionList.count <= row) return nil;
+    if (self.versionList.count <= row) return @"";
     NSObject *object = self.versionList[row];
     if ([object isKindOfClass:[NSString class]]) {
         return (NSString*) object;
-    } else {
-        return [object valueForKey:@"id"];
+    } else if ([object respondsToSelector:@selector(valueForKey:)]) {
+        id val = [object valueForKey:@"id"];
+        if ([val isKindOfClass:[NSString class]]) return val;
     }
+    return @"";
 }
 
-- (void)versionClosePicker {
-    [self.versionTextField endEditing:YES];
-    [self pickerView:self.versionPickerView didSelectRow:[self.versionPickerView selectedRowInComponent:0] inComponent:0];
-}
-
-- (void)changeVersionType:(UISegmentedControl *)sender {
-    NSArray *newVersionList = self.versionList;
-    if (sender || !self.versionList) {
-        if (self.versionTypeControl.selectedSegmentIndex == 0) {
-            // installed
-            newVersionList = localVersionList;
-        } else {
-            NSString *type = @[@"installed", @"release", @"snapshot", @"old_beta", @"old_alpha"][self.versionTypeControl.selectedSegmentIndex];
-            newVersionList = [remoteVersionList filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"(type == %@)", type]];
-        }
+- (void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component {
+    if (self.versionList.count == 0 || row < 0 || row >= self.versionList.count) {
+        self.versionTextField.text = @"";
+        return;
     }
-
-    if (self.versionSelectedAt == -1) {
-        NSDictionary *selected = (id)[MinecraftResourceUtils findVersion:self.versionTextField.text inList:newVersionList];
-        self.versionSelectedAt = [newVersionList indexOfObject:selected];
-    } else {
-        // Find the most matching version for this type
-        NSObject *lastSelected = nil; 
-        if (self.versionList.count > self.versionSelectedAt) {
-            lastSelected = self.versionList[self.versionSelectedAt];
-        }
-        if (lastSelected != nil) {
-            NSObject *nearest = [MinecraftResourceUtils findNearestVersion:lastSelected expectedType:self.versionTypeControl.selectedSegmentIndex];
-            if (nearest != nil) {
-                self.versionSelectedAt = [newVersionList indexOfObject:(id)nearest];
-            }
-        }
-        lastSelected = nil;
-        // Get back the currently selected in case none matching version found
-        self.versionSelectedAt = MIN(abs(self.versionSelectedAt), newVersionList.count - 1);
-    }
-
-    self.versionList = newVersionList;
-    [self.versionPickerView reloadAllComponents];
-    if (self.versionSelectedAt != -1) {
-        [self.versionPickerView selectRow:self.versionSelectedAt inComponent:0 animated:NO];
-        [self pickerView:self.versionPickerView didSelectRow:self.versionSelectedAt inComponent:0];
-    }
+    self.versionSelectedAt = (int)row;
+    NSString *title = [self pickerView:pickerView titleForRow:row forComponent:component];
+    if (title) self.versionTextField.text = title;
 }
 
 @end
