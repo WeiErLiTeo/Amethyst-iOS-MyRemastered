@@ -34,6 +34,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, weak) id<ModTableViewCellDelegate> delegate;
 
 - (void)configureWithMod:(ModItem *)mod;
+- (void)updateToggleState:(BOOL)disabled;
 
 @end
 

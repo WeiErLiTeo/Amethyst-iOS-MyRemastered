@@ -200,8 +200,14 @@
                 [strongSelf presentViewController:errAc animated:YES completion:nil];
             });
         } else {
+            // Instead of refreshing the entire list, just update the specific row
             dispatch_async(dispatch_get_main_queue(), ^{
-                [strongSelf refreshList];
+                // Update the mod item's properties (they are updated in-place by toggleEnableForMod)
+                [mod refreshDisabledFlag];
+                
+                // Update the cell's UI directly without reloading metadata
+                ModTableViewCell *modCell = (ModTableViewCell *)cell;
+                [modCell updateToggleState:mod.disabled];
             });
         }
     }]];

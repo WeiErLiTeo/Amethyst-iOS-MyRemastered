@@ -278,6 +278,13 @@
     return out;
 }
 
+#pragma mark - Public Methods
+
+- (void)updateToggleState:(BOOL)disabled {
+    NSString *toggleTitle = disabled ? @"启用" : @"禁用";
+    [self.toggleButton setTitle:toggleTitle forState:UIControlStateNormal];
+}
+
 #pragma mark - Actions
 
 - (void)toggleTapped {
