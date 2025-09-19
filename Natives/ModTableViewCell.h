@@ -31,10 +31,18 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) UIButton *deleteButton;
 @property (nonatomic, strong) UIButton *openLinkButton; // 地球图标
 
+// Batch selection checkbox
+@property (nonatomic, strong) UIButton *batchSelectionButton;
+
 @property (nonatomic, weak) id<ModTableViewCellDelegate> delegate;
+
+// Batch mode properties
+@property (nonatomic, assign) BOOL isBatchMode;
+@property (nonatomic, assign) BOOL isSelectedForBatch;
 
 - (void)configureWithMod:(ModItem *)mod;
 - (void)updateToggleState:(BOOL)disabled;
+- (void)updateBatchSelectionState:(BOOL)selected;
 
 @end
 

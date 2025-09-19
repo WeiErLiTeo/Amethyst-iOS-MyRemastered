@@ -14,6 +14,10 @@ NS_ASSUME_NONNULL_BEGIN
 // Which profile's mods to show; if nil, module will default to @"default"
 @property (nonatomic, copy, nullable) NSString *profileName;
 
+// Batch operation properties
+@property (nonatomic, assign) BOOL isBatchMode;
+@property (nonatomic, strong) NSMutableSet<NSString *> *selectedModPaths;
+
 @end
 
 NS_ASSUME_NONNULL_END
