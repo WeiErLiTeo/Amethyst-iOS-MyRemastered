@@ -31,8 +31,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) UIButton *deleteButton;
 @property (nonatomic, strong) UIButton *openLinkButton; // 地球图标
 
-// Batch selection checkbox
-@property (nonatomic, strong) UIButton *batchSelectionButton;
+// Batch selection switch
+@property (nonatomic, strong) UISwitch *batchSelectionSwitch;
 
 @property (nonatomic, weak) id<ModTableViewCellDelegate> delegate;
 

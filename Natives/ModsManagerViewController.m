@@ -110,6 +110,9 @@
 
     // Initialize data
     self.mods = [NSMutableArray array];
+    
+    // Initialize batch button states
+    [self updateBatchButtonStates];
 
     // Initial load
     [self refreshList];
@@ -224,16 +227,9 @@
 - (void)updateBatchModeUI {
     if (self.isBatchMode) {
         self.batchButton.title = @"取消";
-        self.navigationItem.rightBarButtonItems = @[self.batchButton];
-        self.bottomToolbar.hidden = NO;
-        
-        // Update toolbar items
-        NSMutableArray *toolbarItems = [NSMutableArray array];
-        [toolbarItems addObject:self.batchDisableButton];
-        [toolbarItems addObject:self.fixedSpace];
-        [toolbarItems addObject:self.batchDeleteButton];
-        [toolbarItems addObject:self.flexibleSpace];
-        self.bottomToolbar.items = toolbarItems;
+        // 在批量模式下，将批量操作按钮放在导航栏右侧
+        self.navigationItem.rightBarButtonItems = @[self.batchDeleteButton, self.batchDisableButton, self.batchButton];
+        self.bottomToolbar.hidden = YES;
         
         // Clear selection when entering batch mode
         [self.selectedModPaths removeAllObjects];
@@ -253,6 +249,16 @@
     }
     
     // Update batch button states
+    [self updateBatchButtonStates];
+}
+
+- (void)updateBatchButtonStates {
+    BOOL hasSelection = self.selectedModPaths.count > 0;
+    self.batchDisableButton.enabled = hasSelection;
+    self.batchDeleteButton.enabled = hasSelection;
+}
+
+- (void)updateBatchButtonStates {
     BOOL hasSelection = self.selectedModPaths.count > 0;
     self.batchDisableButton.enabled = hasSelection;
     self.batchDeleteButton.enabled = hasSelection;
@@ -367,7 +373,8 @@
         if (!ip || (NSUInteger)ip.row >= self.mods.count) return;
         ModItem *mod = self.mods[ip.row];
         [self toggleModSelection:mod.filePath];
-        [(ModTableViewCell *)cell updateBatchSelectionState:[self.selectedModPaths containsObject:mod.filePath]];
+        // Update batch button states
+        [self updateBatchButtonStates];
         return;
     }
     
@@ -412,8 +419,8 @@
         if (!ip || (NSUInteger)ip.row >= self.mods.count) return;
         ModItem *mod = self.mods[ip.row];
         [self toggleModSelection:mod.filePath];
-        [(ModTableViewCell *)cell updateBatchSelectionState:[self.selectedModPaths containsObject:mod.filePath]];
-        [self updateBatchModeUI]; // Update toolbar button states
+        // Update batch button states
+        [self updateBatchButtonStates];
         return;
     }
     

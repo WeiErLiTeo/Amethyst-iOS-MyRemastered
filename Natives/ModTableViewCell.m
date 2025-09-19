@@ -74,11 +74,11 @@
         _deleteButton.contentEdgeInsets = UIEdgeInsetsMake(4, 8, 4, 8);
         [self.contentView addSubview:_deleteButton];
 
-        // Batch selection button (checkbox)
-        _batchSelectionButton = [UIButton buttonWithType:UIButtonTypeCustom];
-        [_batchSelectionButton addTarget:self action:@selector(batchSelectionTapped) forControlEvents:UIControlEventTouchUpInside];
-        _batchSelectionButton.hidden = YES;
-        [self.contentView addSubview:_batchSelectionButton];
+        // Batch selection switch
+        _batchSelectionSwitch = [[UISwitch alloc] init];
+        [_batchSelectionSwitch addTarget:self action:@selector(batchSelectionTapped) forControlEvents:UIControlEventValueChanged];
+        _batchSelectionSwitch.hidden = YES;
+        [self.contentView addSubview:_batchSelectionSwitch];
 
         self.selectionStyle = UITableViewCellSelectionStyleNone;
     }
@@ -90,12 +90,18 @@
     CGFloat padding = 10;
     CGFloat iconSize = 48;
     
-    // Position batch selection button
-    CGFloat batchButtonSize = 24;
-    self.batchSelectionButton.frame = CGRectMake(padding, padding + (iconSize - batchButtonSize) / 2, batchButtonSize, batchButtonSize);
+    // Position batch selection switch
+    CGFloat switchWidth = self.batchSelectionSwitch.frame.size.width;
+    CGFloat switchHeight = self.batchSelectionSwitch.frame.size.height;
+    if (switchWidth == 0 || switchHeight == 0) {
+        // Set a default size if not yet sized
+        switchWidth = 51;  // Standard UISwitch width
+        switchHeight = 31; // Standard UISwitch height
+    }
+    self.batchSelectionSwitch.frame = CGRectMake(padding, padding + (iconSize - switchHeight) / 2, switchWidth, switchHeight);
     
     // Position mod icon view (with offset when in batch mode)
-    CGFloat iconX = self.isBatchMode ? (padding + batchButtonSize + 8) : padding;
+    CGFloat iconX = self.isBatchMode ? (padding + switchWidth + 8) : padding;
     self.modIconView.frame = CGRectMake(iconX, padding, iconSize, iconSize);
 
     CGFloat x = CGRectGetMaxX(self.modIconView.frame) + 10;
@@ -142,7 +148,7 @@
     [self.contentView bringSubviewToFront:self.deleteButton];
     [self.contentView bringSubviewToFront:self.toggleButton];
     [self.contentView bringSubviewToFront:self.openLinkButton];
-    [self.contentView bringSubviewToFront:self.batchSelectionButton];
+    [self.contentView bringSubviewToFront:self.batchSelectionSwitch];
 }
 
 - (void)prepareForReuse {
@@ -161,16 +167,17 @@
     // Reset batch mode state
     self.isBatchMode = NO;
     self.isSelectedForBatch = NO;
-    self.batchSelectionButton.hidden = YES;
+    self.batchSelectionSwitch.hidden = YES;
+    self.batchSelectionSwitch.on = NO;
 }
 
 - (void)configureWithMod:(ModItem *)mod {
     self.currentMod = mod;
 
     // Update batch mode UI
-    self.batchSelectionButton.hidden = !self.isBatchMode;
+    self.batchSelectionSwitch.hidden = !self.isBatchMode;
     if (self.isBatchMode) {
-        [self updateBatchSelectionState:self.isSelectedForBatch];
+        self.batchSelectionSwitch.on = self.isSelectedForBatch;
     }
 
     // name + version
@@ -310,22 +317,6 @@
     [self.toggleButton setTitle:toggleTitle forState:UIControlStateNormal];
 }
 
-- (void)updateBatchSelectionState:(BOOL)selected {
-    self.isSelectedForBatch = selected;
-    if (selected) {
-        // Show checkmark
-        [self.batchSelectionButton setTitle:@"✓" forState:UIControlStateNormal];
-        self.batchSelectionButton.backgroundColor = [UIColor systemBlueColor];
-    } else {
-        // Show empty checkbox
-        [self.batchSelectionButton setTitle:@"☐" forState:UIControlStateNormal];
-        self.batchSelectionButton.backgroundColor = [UIColor clearColor];
-        self.batchSelectionButton.layer.borderColor = [UIColor systemGrayColor].CGColor;
-        self.batchSelectionButton.layer.borderWidth = 1.0;
-    }
-    self.batchSelectionButton.titleLabel.font = [UIFont systemFontOfSize:18];
-}
-
 #pragma mark - Actions
 
 - (void)toggleTapped {
@@ -349,9 +340,8 @@
 }
 
 - (void)batchSelectionTapped {
-    // Toggle selection state
-    self.isSelectedForBatch = !self.isSelectedForBatch;
-    [self updateBatchSelectionState:self.isSelectedForBatch];
+    // Update selection state based on switch value
+    self.isSelectedForBatch = self.batchSelectionSwitch.on;
     
     // Notify delegate (handled in ModsManagerViewController)
     if ([self.delegate respondsToSelector:@selector(modCellDidTapToggle:)]) {
