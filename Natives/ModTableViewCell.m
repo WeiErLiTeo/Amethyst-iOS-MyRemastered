@@ -74,11 +74,8 @@
         _deleteButton.contentEdgeInsets = UIEdgeInsetsMake(4, 8, 4, 8);
         [self.contentView addSubview:_deleteButton];
 
-        // Batch selection switch
-        _batchSelectionSwitch = [[UISwitch alloc] init];
-        [_batchSelectionSwitch addTarget:self action:@selector(batchSelectionTapped) forControlEvents:UIControlEventValueChanged];
-        _batchSelectionSwitch.hidden = YES; // Hidden by default, shown only in batch mode
-        [self.contentView addSubview:_batchSelectionSwitch];
+        // Set default background color
+        self.contentView.backgroundColor = [UIColor systemBackgroundColor];
 
         self.selectionStyle = UITableViewCellSelectionStyleNone;
     }
@@ -90,18 +87,8 @@
     CGFloat padding = 10;
     CGFloat iconSize = 48;
     
-    // Position batch selection switch
-    CGFloat switchWidth = self.batchSelectionSwitch.frame.size.width;
-    CGFloat switchHeight = self.batchSelectionSwitch.frame.size.height;
-    if (switchWidth == 0 || switchHeight == 0) {
-        // Set a default size if not yet sized
-        switchWidth = 51;  // Standard UISwitch width
-        switchHeight = 31; // Standard UISwitch height
-    }
-    self.batchSelectionSwitch.frame = CGRectMake(padding, padding + (iconSize - switchHeight) / 2, switchWidth, switchHeight);
-    
-    // Position mod icon view (with offset when in batch mode)
-    CGFloat iconX = self.isBatchMode ? (padding + switchWidth + 8) : padding;
+    // Position mod icon view
+    CGFloat iconX = padding;
     self.modIconView.frame = CGRectMake(iconX, padding, iconSize, iconSize);
 
     CGFloat x = CGRectGetMaxX(self.modIconView.frame) + 10;
@@ -167,17 +154,16 @@
     // Reset batch mode state
     self.isBatchMode = NO;
     self.isSelectedForBatch = NO;
-    self.batchSelectionSwitch.hidden = YES;
-    self.batchSelectionSwitch.on = NO;
 }
 
 - (void)configureWithMod:(ModItem *)mod {
     self.currentMod = mod;
 
-    // Update batch mode UI
-    self.batchSelectionSwitch.hidden = !self.isBatchMode;
-    if (self.isBatchMode) {
-        self.batchSelectionSwitch.on = self.isSelectedForBatch;
+    // Update selection background
+    if (self.isBatchMode && self.isSelectedForBatch) {
+        self.contentView.backgroundColor = [UIColor systemBlueColor];  // 选中时的背景色
+    } else {
+        self.contentView.backgroundColor = [UIColor systemBackgroundColor];  // 默认背景色
     }
 
     // name + version
@@ -336,16 +322,6 @@
     if (!(self.currentMod.homepage.length || self.currentMod.sources.length)) return;
     if ([self.delegate respondsToSelector:@selector(modCellDidTapOpenLink:)]) {
         [self.delegate modCellDidTapOpenLink:self];
-    }
-}
-
-- (void)batchSelectionTapped {
-    // Update selection state based on switch value
-    self.isSelectedForBatch = self.batchSelectionSwitch.on;
-    
-    // Notify delegate (handled in ModsManagerViewController)
-    if ([self.delegate respondsToSelector:@selector(modCellDidTapToggle:)]) {
-        [self.delegate modCellDidTapToggle:self];
     }
 }
 
