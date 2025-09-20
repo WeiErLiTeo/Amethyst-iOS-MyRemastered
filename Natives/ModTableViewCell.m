@@ -166,9 +166,12 @@
 
     // Update selection background for the entire cell
     if (self.isBatchMode && self.isSelectedForBatch) {
-        self.backgroundColor = [UIColor systemBlueColor];  // 蓝色背景
+        self.contentView.backgroundColor = [UIColor systemBlueColor];  // 蓝色背景
+        self.selectedBackgroundView = nil;  // 清除系统选择背景
     } else {
-        self.backgroundColor = [UIColor systemBackgroundColor];  // 默认背景色
+        self.contentView.backgroundColor = [UIColor systemBackgroundColor];  // 默认背景色
+        self.selectedBackgroundView = [[UIView alloc] init];  // 恢复系统选择背景
+        self.selectedBackgroundView.backgroundColor = [UIColor systemBlueColor];
     }
 
     // Update icon view border to indicate selection
