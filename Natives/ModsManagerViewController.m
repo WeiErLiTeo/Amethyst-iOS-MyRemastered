@@ -314,8 +314,23 @@
             __strong typeof(weakSelf) strongSelf = weakSelf;
             if (!strongSelf) return;
             
-            // Refresh the list to show updated states
-            [strongSelf refreshList];
+            // Update the specific rows instead of refreshing the entire list
+            for (ModItem *mod in modsToProcess) {
+                NSUInteger idx = [strongSelf.mods indexOfObjectPassingTest:^BOOL(ModItem * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                    return [obj.filePath isEqualToString:mod.filePath];
+                }];
+                if (idx != NSNotFound && idx < strongSelf.mods.count) {
+                    // Update the mod item's properties (they are updated in-place by toggleEnableForMod)
+                    [mod refreshDisabledFlag];
+                    
+                    // Update the cell's UI directly without reloading metadata
+                    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:idx inSection:0];
+                    ModTableViewCell *cell = (ModTableViewCell *)[strongSelf.tableView cellForRowAtIndexPath:indexPath];
+                    if (cell) {
+                        [cell updateToggleState:mod.disabled];
+                    }
+                }
+            }
             
             // Exit batch mode
             strongSelf.isBatchMode = NO;
@@ -364,8 +379,23 @@
             __strong typeof(weakSelf) strongSelf = weakSelf;
             if (!strongSelf) return;
             
-            // Refresh the list to show updated states
-            [strongSelf refreshList];
+            // Update the specific rows instead of refreshing the entire list
+            for (ModItem *mod in modsToProcess) {
+                NSUInteger idx = [strongSelf.mods indexOfObjectPassingTest:^BOOL(ModItem * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                    return [obj.filePath isEqualToString:mod.filePath];
+                }];
+                if (idx != NSNotFound && idx < strongSelf.mods.count) {
+                    // Update the mod item's properties (they are updated in-place by toggleEnableForMod)
+                    [mod refreshDisabledFlag];
+                    
+                    // Update the cell's UI directly without reloading metadata
+                    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:idx inSection:0];
+                    ModTableViewCell *cell = (ModTableViewCell *)[strongSelf.tableView cellForRowAtIndexPath:indexPath];
+                    if (cell) {
+                        [cell updateToggleState:mod.disabled];
+                    }
+                }
+            }
             
             // Exit batch mode
             strongSelf.isBatchMode = NO;
