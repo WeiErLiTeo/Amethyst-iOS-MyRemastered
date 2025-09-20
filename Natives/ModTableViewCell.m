@@ -22,6 +22,7 @@
         _modIconView.layer.cornerRadius = 6;
         _modIconView.clipsToBounds = YES;
         _modIconView.contentMode = UIViewContentModeScaleAspectFill;
+        _modIconView.userInteractionEnabled = YES;  // Enable user interaction for tap gestures
         [self.contentView addSubview:_modIconView];
 
         _loaderBadgeView1 = [[UIImageView alloc] initWithFrame:CGRectZero];
@@ -73,6 +74,11 @@
         [_deleteButton addTarget:self action:@selector(deleteTapped) forControlEvents:UIControlEventTouchUpInside];
         _deleteButton.contentEdgeInsets = UIEdgeInsetsMake(4, 8, 4, 8);
         [self.contentView addSubview:_deleteButton];
+
+        // Add tap gesture recognizer for mod icon selection in batch mode
+        UITapGestureRecognizer *iconTapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(iconTapped:)];
+        [_modIconView addGestureRecognizer:iconTapGesture];
+        _modIconView.userInteractionEnabled = YES;
 
         // Set default background color
         self.contentView.backgroundColor = [UIColor systemBackgroundColor];
@@ -158,11 +164,19 @@
 - (void)configureWithMod:(ModItem *)mod {
     self.currentMod = mod;
 
-    // Update selection background
+    // Update selection background for the entire cell
     if (self.isBatchMode && self.isSelectedForBatch) {
-        self.contentView.backgroundColor = [UIColor systemBlueColor];  // 选中时的背景色
+        self.contentView.backgroundColor = [[UIColor systemBlueColor] colorWithAlphaComponent:0.2];  // 半透明蓝色背景
     } else {
         self.contentView.backgroundColor = [UIColor systemBackgroundColor];  // 默认背景色
+    }
+
+    // Update icon view border to indicate selection
+    if (self.isBatchMode && self.isSelectedForBatch) {
+        self.modIconView.layer.borderWidth = 3.0;
+        self.modIconView.layer.borderColor = [UIColor systemBlueColor].CGColor;
+    } else {
+        self.modIconView.layer.borderWidth = 0;
     }
 
     // name + version
@@ -322,6 +336,16 @@
     if ([self.delegate respondsToSelector:@selector(modCellDidTapOpenLink:)]) {
         [self.delegate modCellDidTapOpenLink:self];
     }
+}
+
+- (void)iconTapped:(UITapGestureRecognizer *)gesture {
+    // In batch mode, toggle selection when icon is tapped
+    if (self.isBatchMode) {
+        if ([self.delegate respondsToSelector:@selector(modCellDidTapToggle:)]) {
+            [self.delegate modCellDidTapToggle:self];
+        }
+    }
+    // In normal mode, do nothing (buttons handle their own actions)
 }
 
 @end
