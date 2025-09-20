@@ -135,7 +135,6 @@
     [self.contentView bringSubviewToFront:self.deleteButton];
     [self.contentView bringSubviewToFront:self.toggleButton];
     [self.contentView bringSubviewToFront:self.openLinkButton];
-    [self.contentView bringSubviewToFront:self.batchSelectionSwitch];
 }
 
 - (void)prepareForReuse {
