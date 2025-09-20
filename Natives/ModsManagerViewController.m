@@ -216,6 +216,22 @@
     return cell;
 }
 
+#pragma mark - UITableView Delegate
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (self.isBatchMode) {
+        if ((NSUInteger)indexPath.row < self.mods.count) {
+            ModItem *mod = self.mods[indexPath.row];
+            [self toggleModSelection:mod.filePath];
+            // Update batch button states
+            [self updateBatchButtonStates];
+            
+            // Reload this row to update UI
+            [self.tableView reloadRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationNone];
+        }
+    }
+}
+
 #pragma mark - Batch Operations
 
 - (void)toggleBatchMode {

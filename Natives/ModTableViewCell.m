@@ -166,7 +166,7 @@
 
     // Update selection background for the entire cell
     if (self.isBatchMode && self.isSelectedForBatch) {
-        self.contentView.backgroundColor = [[UIColor systemBlueColor] colorWithAlphaComponent:0.2];  // 半透明蓝色背景
+        self.contentView.backgroundColor = [UIColor systemBlueColor];  // 蓝色背景
     } else {
         self.contentView.backgroundColor = [UIColor systemBackgroundColor];  // 默认背景色
     }
@@ -174,7 +174,7 @@
     // Update icon view border to indicate selection
     if (self.isBatchMode && self.isSelectedForBatch) {
         self.modIconView.layer.borderWidth = 3.0;
-        self.modIconView.layer.borderColor = [UIColor systemBlueColor].CGColor;
+        self.modIconView.layer.borderColor = [UIColor whiteColor].CGColor;
     } else {
         self.modIconView.layer.borderWidth = 0;
     }
