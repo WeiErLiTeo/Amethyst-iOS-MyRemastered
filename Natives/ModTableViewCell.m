@@ -77,7 +77,7 @@
         // Batch selection switch
         _batchSelectionSwitch = [[UISwitch alloc] init];
         [_batchSelectionSwitch addTarget:self action:@selector(batchSelectionTapped) forControlEvents:UIControlEventValueChanged];
-        _batchSelectionSwitch.hidden = YES;
+        _batchSelectionSwitch.hidden = YES; // Hidden by default, shown only in batch mode
         [self.contentView addSubview:_batchSelectionSwitch];
 
         self.selectionStyle = UITableViewCellSelectionStyleNone;
