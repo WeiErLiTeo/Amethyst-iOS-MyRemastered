@@ -258,12 +258,6 @@
     self.batchDeleteButton.enabled = hasSelection;
 }
 
-- (void)updateBatchButtonStates {
-    BOOL hasSelection = self.selectedModPaths.count > 0;
-    self.batchDisableButton.enabled = hasSelection;
-    self.batchDeleteButton.enabled = hasSelection;
-}
-
 - (void)batchDisable {
     if (self.selectedModPaths.count == 0) return;
     
@@ -365,6 +359,25 @@
 }
 
 #pragma mark - ModTableViewCellDelegate
+
+- (void)modCellDidTapOpenLink:(UITableViewCell *)cell {
+    NSIndexPath *ip = [self.tableView indexPathForCell:cell];
+    if (!ip || (NSUInteger)ip.row >= self.mods.count) return;
+    ModItem *mod = self.mods[ip.row];
+    
+    NSURL *url = nil;
+    if (mod.homepage && mod.homepage.length > 0) {
+        url = [NSURL URLWithString:mod.homepage];
+    }
+    
+    if (url) {
+        [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+    } else {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"无链接" message:@"此Mod没有提供主页或源代码链接。" preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+    }
+}
 
 - (void)modCellDidTapToggle:(UITableViewCell *)cell {
     // In batch mode, toggle selection instead of enabling/disabling
