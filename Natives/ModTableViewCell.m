@@ -164,14 +164,15 @@
 - (void)configureWithMod:(ModItem *)mod {
     self.currentMod = mod;
 
-    // Update selection border for batch mode (5px green border)
+    // Update selection border for batch mode (5px green border, iOS 14+ compatible)
     if (self.isBatchMode && self.isSelectedForBatch) {
-        self.layer.borderColor = [UIColor greenColor].CGColor;
-        self.layer.borderWidth = 5.0;
+        self.contentView.layer.borderColor = [UIColor greenColor].CGColor;
+        self.contentView.layer.borderWidth = 5.0;
+        self.contentView.layer.masksToBounds = YES;
         self.selectedBackgroundView = nil;
     } else {
-        self.layer.borderColor = [UIColor clearColor].CGColor;
-        self.layer.borderWidth = 0.0;
+        self.contentView.layer.borderColor = [UIColor clearColor].CGColor;
+        self.contentView.layer.borderWidth = 0.0;
         self.selectedBackgroundView = [[UIView alloc] init];
         self.selectedBackgroundView.backgroundColor = [UIColor systemBlueColor];
     }
