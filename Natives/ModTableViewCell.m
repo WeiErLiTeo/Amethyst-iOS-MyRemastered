@@ -164,13 +164,15 @@
 - (void)configureWithMod:(ModItem *)mod {
     self.currentMod = mod;
 
-    // Update selection background for the entire cell
+    // 强制更新背景色
     if (self.isBatchMode && self.isSelectedForBatch) {
-        self.contentView.backgroundColor = [UIColor systemBlueColor];  // 蓝色背景
-        self.selectedBackgroundView = nil;  // 清除系统选择背景
+        self.backgroundColor = [UIColor systemBlueColor];
+        self.contentView.backgroundColor = [UIColor systemBlueColor];
+        self.selectedBackgroundView = nil;
     } else {
-        self.contentView.backgroundColor = [UIColor systemBackgroundColor];  // 默认背景色
-        self.selectedBackgroundView = [[UIView alloc] init];  // 恢复系统选择背景
+        self.backgroundColor = [UIColor systemBackgroundColor];
+        self.contentView.backgroundColor = [UIColor systemBackgroundColor];
+        self.selectedBackgroundView = [[UIView alloc] init];
         self.selectedBackgroundView.backgroundColor = [UIColor systemBlueColor];
     }
 
