@@ -156,34 +156,24 @@
     self.descLabel.text = nil;
     self.currentMod = nil;
     
-    // Reset batch mode state
+    // Reset batch mode state and clear borders
     self.isBatchMode = NO;
     self.isSelectedForBatch = NO;
+    
+    // Clear any existing borders from previous state
+    self.contentView.layer.borderColor = [UIColor clearColor].CGColor;
+    self.contentView.layer.borderWidth = 0.0;
+    self.contentView.layer.cornerRadius = 0.0; // Reset corner radius
+    self.modIconView.layer.borderWidth = 0;
+    self.selectedBackgroundView = [[UIView alloc] init];
+    self.selectedBackgroundView.backgroundColor = [UIColor systemBlueColor];
 }
 
 - (void)configureWithMod:(ModItem *)mod {
     self.currentMod = mod;
 
-    // Update selection border for batch mode (5px green border, iOS 14+ compatible)
-    if (self.isBatchMode && self.isSelectedForBatch) {
-        self.contentView.layer.borderColor = [UIColor greenColor].CGColor;
-        self.contentView.layer.borderWidth = 5.0;
-        self.contentView.layer.masksToBounds = YES;
-        self.selectedBackgroundView = nil;
-    } else {
-        self.contentView.layer.borderColor = [UIColor clearColor].CGColor;
-        self.contentView.layer.borderWidth = 0.0;
-        self.selectedBackgroundView = [[UIView alloc] init];
-        self.selectedBackgroundView.backgroundColor = [UIColor systemBlueColor];
-    }
-
-    // Update icon view border to indicate selection
-    if (self.isBatchMode && self.isSelectedForBatch) {
-        self.modIconView.layer.borderWidth = 3.0;
-        self.modIconView.layer.borderColor = [UIColor whiteColor].CGColor;
-    } else {
-        self.modIconView.layer.borderWidth = 0;
-    }
+    // Border display logic is now handled exclusively in updateBatchSelectionState:
+    // This ensures consistent behavior and avoids conflicts during cell reuse
 
     // name + version
     NSString *name = mod.displayName ?: mod.fileName;
@@ -330,11 +320,13 @@
     if (batchMode && isSelected) {
         self.contentView.layer.borderColor = [UIColor greenColor].CGColor;
         self.contentView.layer.borderWidth = 5.0;
+        self.contentView.layer.cornerRadius = 8.0; // Add corner radius for better visual
         self.contentView.layer.masksToBounds = YES;
         self.selectedBackgroundView = nil;
     } else {
         self.contentView.layer.borderColor = [UIColor clearColor].CGColor;
         self.contentView.layer.borderWidth = 0.0;
+        self.contentView.layer.cornerRadius = 0.0; // Reset corner radius
         self.selectedBackgroundView = [[UIView alloc] init];
         self.selectedBackgroundView.backgroundColor = [UIColor systemBlueColor];
     }
