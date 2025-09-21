@@ -39,6 +39,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)configureWithMod:(ModItem *)mod;
 - (void)updateToggleState:(BOOL)disabled;
+- (void)updateBatchSelectionState:(BOOL)isSelected batchMode:(BOOL)batchMode;
 
 @end
 
