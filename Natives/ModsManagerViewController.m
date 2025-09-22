@@ -294,7 +294,7 @@
     [self presentViewController:ac animated:YES completion:nil];
 }
 
-- (void)performBatchDisable {
+- (void)performBatchOperationWithAction:(void (^)(ModItem *))action {
     __weak typeof(self) weakSelf = self;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSMutableArray<ModItem *> *modsToProcess = [NSMutableArray array];
@@ -308,8 +308,7 @@
         
         // Process each mod
         for (ModItem *mod in modsToProcess) {
-            NSError *error = nil;
-            [[ModService sharedService] toggleEnableForMod:mod error:&error];
+            action(mod);
         }
         
         // Update UI on main queue
@@ -340,6 +339,13 @@
             [strongSelf updateBatchModeUI];
         });
     });
+}
+
+- (void)performBatchDisable {
+    [self performBatchOperationWithAction:^(ModItem *mod) {
+        NSError *error = nil;
+        [[ModService sharedService] toggleEnableForMod:mod error:&error];
+    }];
 }
 
 - (void)batchDelete {
@@ -360,51 +366,10 @@
 }
 
 - (void)performBatchDelete {
-    __weak typeof(self) weakSelf = self;
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        NSMutableArray<ModItem *> *modsToProcess = [NSMutableArray array];
-        
-        // Find mods to process
-        for (ModItem *mod in weakSelf.mods) {
-            if ([weakSelf.selectedModPaths containsObject:mod.filePath]) {
-                [modsToProcess addObject:mod];
-            }
-        }
-        
-        // Process each mod
-        for (ModItem *mod in modsToProcess) {
-            NSError *error = nil;
-            [[ModService sharedService] deleteMod:mod error:&error];
-        }
-        
-        // Update UI on main queue
-        dispatch_async(dispatch_get_main_queue(), ^{
-            __strong typeof(weakSelf) strongSelf = weakSelf;
-            if (!strongSelf) return;
-            
-            // Update the specific rows instead of refreshing the entire list
-            for (ModItem *mod in modsToProcess) {
-                NSUInteger idx = [strongSelf.mods indexOfObjectPassingTest:^BOOL(ModItem * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-                    return [obj.filePath isEqualToString:mod.filePath];
-                }];
-                if (idx != NSNotFound && idx < strongSelf.mods.count) {
-                    // Update the mod item's properties (they are updated in-place by toggleEnableForMod)
-                    [mod refreshDisabledFlag];
-                    
-                    // Update the cell's UI directly without reloading metadata
-                    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:idx inSection:0];
-                    ModTableViewCell *cell = (ModTableViewCell *)[strongSelf.tableView cellForRowAtIndexPath:indexPath];
-                    if (cell) {
-                        [cell updateToggleState:mod.disabled];
-                    }
-                }
-            }
-            
-            // Exit batch mode
-            strongSelf.isBatchMode = NO;
-            [strongSelf updateBatchModeUI];
-        });
-    });
+    [self performBatchOperationWithAction:^(ModItem *mod) {
+        NSError *error = nil;
+        [[ModService sharedService] deleteMod:mod error:&error];
+    }];
 }
 
 #pragma mark - ModTableViewCellDelegate
@@ -429,20 +394,16 @@
 }
 
 - (void)modCellDidTapToggle:(UITableViewCell *)cell {
-    // In batch mode, toggle selection instead of enabling/disabling
-    if (self.isBatchMode) {
-        NSIndexPath *ip = [self.tableView indexPathForCell:cell];
-        if (!ip || (NSUInteger)ip.row >= self.mods.count) return;
-        ModItem *mod = self.mods[ip.row];
-        [self toggleModSelection:mod.filePath];
-        // Update batch button states
-        [self updateBatchButtonStates];
-        return;
-    }
-    
     NSIndexPath *ip = [self.tableView indexPathForCell:cell];
     if (!ip || (NSUInteger)ip.row >= self.mods.count) return;
     ModItem *mod = self.mods[ip.row];
+    
+    // In batch mode, toggle selection instead of enabling/disabling
+    if (self.isBatchMode) {
+        [self toggleModSelection:mod.filePath];
+        return;
+    }
+    
     NSString *title = mod.disabled ? @"启用 Mod" : @"禁用 Mod";
     NSString *message = mod.disabled ? @"确定启用此 Mod 吗？" : @"确定禁用此 Mod 吗？";
     UIAlertController *ac = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
@@ -475,20 +436,16 @@
 }
 
 - (void)modCellDidTapDelete:(UITableViewCell *)cell {
-    // In batch mode, toggle selection instead of deleting
-    if (self.isBatchMode) {
-        NSIndexPath *ip = [self.tableView indexPathForCell:cell];
-        if (!ip || (NSUInteger)ip.row >= self.mods.count) return;
-        ModItem *mod = self.mods[ip.row];
-        [self toggleModSelection:mod.filePath];
-        // Update batch button states
-        [self updateBatchButtonStates];
-        return;
-    }
-    
     NSIndexPath *ip = [self.tableView indexPathForCell:cell];
     if (!ip || (NSUInteger)ip.row >= self.mods.count) return;
     ModItem *mod = self.mods[ip.row];
+    
+    // In batch mode, toggle selection instead of deleting
+    if (self.isBatchMode) {
+        [self toggleModSelection:mod.filePath];
+        return;
+    }
+    
     UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"删除 Mod" message:@"确认删除此 Mod 文件吗？此操作不可撤销。" preferredStyle:UIAlertControllerStyleAlert];
     [ac addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
     __weak typeof(self) weakSelf = self;
