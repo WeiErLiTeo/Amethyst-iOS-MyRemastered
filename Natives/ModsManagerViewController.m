@@ -22,6 +22,7 @@
 @property (nonatomic, strong) UIToolbar *bottomToolbar;
 @property (nonatomic, strong) UIBarButtonItem *batchDisableButton;
 @property (nonatomic, strong) UIBarButtonItem *batchDeleteButton;
+@property (nonatomic, strong) UIBarButtonItem *selectAllButton;
 @property (nonatomic, strong) UIBarButtonItem *flexibleSpace;
 @property (nonatomic, strong) UIBarButtonItem *fixedSpace;
 
@@ -72,6 +73,7 @@
     // Toolbar buttons
     self.batchDisableButton = [[UIBarButtonItem alloc] initWithTitle:@"批量禁用" style:UIBarButtonItemStylePlain target:self action:@selector(batchDisable)];
     self.batchDeleteButton = [[UIBarButtonItem alloc] initWithTitle:@"批量删除" style:UIBarButtonItemStylePlain target:self action:@selector(batchDelete)];
+    self.selectAllButton = [[UIBarButtonItem alloc] initWithTitle:@"全选" style:UIBarButtonItemStylePlain target:self action:@selector(selectAllMods)];
     self.flexibleSpace = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
     self.fixedSpace = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFixedSpace target:nil action:nil];
     self.fixedSpace.width = 20;
@@ -247,7 +249,7 @@
     if (self.isBatchMode) {
         self.batchButton.title = @"取消";
         // 在批量模式下，将批量操作按钮放在导航栏右侧
-        self.navigationItem.rightBarButtonItems = @[self.batchDeleteButton, self.batchDisableButton, self.batchButton];
+        self.navigationItem.rightBarButtonItems = @[self.batchDeleteButton, self.batchDisableButton, self.selectAllButton, self.batchButton];
         self.bottomToolbar.hidden = YES;
         
         // Clear selection when entering batch mode
@@ -258,6 +260,9 @@
         self.bottomToolbar.hidden = YES;
         [self.selectedModPaths removeAllObjects];
     }
+    
+    // Update batch button states
+    [self updateBatchButtonStates];
 }
 
 - (void)toggleModSelection:(NSString *)modPath {
@@ -275,6 +280,20 @@
     BOOL hasSelection = self.selectedModPaths.count > 0;
     self.batchDisableButton.enabled = hasSelection;
     self.batchDeleteButton.enabled = hasSelection;
+}
+
+- (void)selectAllMods {
+    // Clear current selection
+    [self.selectedModPaths removeAllObjects];
+    
+    // Select all mods
+    for (ModItem *mod in self.mods) {
+        [self.selectedModPaths addObject:mod.filePath];
+    }
+    
+    // Update UI
+    [self.tableView reloadData];
+    [self updateBatchButtonStates];
 }
 
 - (void)batchDisable {

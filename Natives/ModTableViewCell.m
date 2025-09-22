@@ -317,19 +317,25 @@
     self.isSelectedForBatch = isSelected;
     self.isBatchMode = batchMode;
     
-    // Update selection border for batch mode (5px green border, iOS 14+ compatible)
+    // Update selection border for batch mode (3px green border with 2px inset, iOS 14+ compatible)
     if (batchMode && isSelected) {
         self.layer.borderColor = [UIColor greenColor].CGColor;
-        self.layer.borderWidth = 5.0;
-        self.layer.cornerRadius = 8.0;
+        self.layer.borderWidth = 3.0;
+        self.layer.cornerRadius = 6.0;
         self.layer.masksToBounds = YES;
         self.contentView.layer.masksToBounds = YES;
         self.selectedBackgroundView = nil;
+        
+        // Add a 2px inset by adjusting the frame
+        self.contentView.frame = CGRectMake(2.0, 2.0, self.bounds.size.width - 4.0, self.bounds.size.height - 4.0);
     } else {
         self.layer.borderColor = [UIColor clearColor].CGColor;
         self.layer.borderWidth = 0.0;
         self.layer.cornerRadius = 0.0;
         self.selectedBackgroundView = nil;
+        
+        // Reset the frame
+        self.contentView.frame = CGRectMake(0.0, 0.0, self.bounds.size.width, self.bounds.size.height);
     }
 
     // Update icon view border to indicate selection
