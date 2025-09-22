@@ -161,9 +161,12 @@
     self.isSelectedForBatch = NO;
     
     // Clear any existing borders from previous state
+    self.layer.borderColor = [UIColor clearColor].CGColor;
+    self.layer.borderWidth = 0.0;
+    self.layer.cornerRadius = 0.0;
     self.contentView.layer.borderColor = [UIColor clearColor].CGColor;
     self.contentView.layer.borderWidth = 0.0;
-    self.contentView.layer.cornerRadius = 0.0; // Reset corner radius
+    self.contentView.layer.cornerRadius = 0.0;
     self.modIconView.layer.borderWidth = 0;
     self.selectedBackgroundView = [[UIView alloc] init];
     self.selectedBackgroundView.backgroundColor = [UIColor systemBlueColor];
@@ -318,15 +321,16 @@
     
     // Update selection border for batch mode (5px green border, iOS 14+ compatible)
     if (batchMode && isSelected) {
-        self.contentView.layer.borderColor = [UIColor greenColor].CGColor;
-        self.contentView.layer.borderWidth = 5.0;
-        self.contentView.layer.cornerRadius = 8.0; // Add corner radius for better visual
+        self.layer.borderColor = [UIColor greenColor].CGColor;
+        self.layer.borderWidth = 5.0;
+        self.layer.cornerRadius = 8.0;
+        self.layer.masksToBounds = YES;
         self.contentView.layer.masksToBounds = YES;
         self.selectedBackgroundView = nil;
     } else {
-        self.contentView.layer.borderColor = [UIColor clearColor].CGColor;
-        self.contentView.layer.borderWidth = 0.0;
-        self.contentView.layer.cornerRadius = 0.0; // Reset corner radius
+        self.layer.borderColor = [UIColor clearColor].CGColor;
+        self.layer.borderWidth = 0.0;
+        self.layer.cornerRadius = 0.0;
         self.selectedBackgroundView = [[UIView alloc] init];
         self.selectedBackgroundView.backgroundColor = [UIColor systemBlueColor];
     }

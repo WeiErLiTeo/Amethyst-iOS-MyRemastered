@@ -207,11 +207,11 @@
     if (m) {
         [cell configureWithMod:m];
         // Set batch mode and selection state
-        cell.isBatchMode = self.isBatchMode;
-        cell.isSelectedForBatch = [self.selectedModPaths containsObject:m.filePath];
+        [cell updateBatchSelectionState:[self.selectedModPaths containsObject:m.filePath] batchMode:self.isBatchMode];
     } else {
         // Defensive: create an empty placeholder ModItem if out-of-range
         [cell configureWithMod:[[ModItem alloc] initWithFilePath:@""]];
+        [cell updateBatchSelectionState:NO batchMode:self.isBatchMode];
     }
     return cell;
 }
@@ -226,8 +226,11 @@
             // Update batch button states
             [self updateBatchButtonStates];
             
-            // Reload this row to update UI
-            [self.tableView reloadRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationNone];
+            // Update the cell's selection state directly instead of reloading
+            ModTableViewCell *cell = (ModTableViewCell *)[self.tableView cellForRowAtIndexPath:indexPath];
+            if (cell) {
+                [cell updateBatchSelectionState:[self.selectedModPaths containsObject:mod.filePath] batchMode:self.isBatchMode];
+            }
         }
     }
 }

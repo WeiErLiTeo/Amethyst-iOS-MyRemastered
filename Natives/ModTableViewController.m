@@ -98,6 +98,8 @@
     ModItem *m = self.mods[indexPath.row];
     cell.delegate = self;
     [cell configureWithMod:m];
+    // Reset batch mode state since this controller doesn't use batch mode
+    [cell updateBatchSelectionState:NO batchMode:NO];
     return cell;
 }
 
