@@ -243,6 +243,11 @@
     self.isBatchMode = !self.isBatchMode;
     [self updateBatchModeUI];
     [self.tableView reloadData];
+    
+    // 确保在退出批量模式时清除所有选择
+    if (!self.isBatchMode) {
+        [self.selectedModPaths removeAllObjects];
+    }
 }
 
 - (void)updateBatchModeUI {
@@ -259,6 +264,9 @@
         self.navigationItem.rightBarButtonItems = @[self.refreshButton, self.batchButton];
         self.bottomToolbar.hidden = YES;
         [self.selectedModPaths removeAllObjects];
+        
+        // 退出批量模式时，刷新表格以确保所有单元格正确更新
+        [self.tableView reloadData];
     }
     
     // Update batch button states
@@ -356,6 +364,9 @@
             // Exit batch mode
             strongSelf.isBatchMode = NO;
             [strongSelf updateBatchModeUI];
+            
+            // Clear selection after batch operation
+            [strongSelf.selectedModPaths removeAllObjects];
         });
     });
 }
@@ -420,6 +431,9 @@
     // In batch mode, toggle selection instead of enabling/disabling
     if (self.isBatchMode) {
         [self toggleModSelection:mod.filePath];
+        // Update the cell's selection state directly instead of reloading
+        ModTableViewCell *modCell = (ModTableViewCell *)cell;
+        [modCell updateBatchSelectionState:[self.selectedModPaths containsObject:mod.filePath] batchMode:self.isBatchMode];
         return;
     }
     
@@ -462,6 +476,9 @@
     // In batch mode, toggle selection instead of deleting
     if (self.isBatchMode) {
         [self toggleModSelection:mod.filePath];
+        // Update the cell's selection state directly instead of reloading
+        ModTableViewCell *modCell = (ModTableViewCell *)cell;
+        [modCell updateBatchSelectionState:[self.selectedModPaths containsObject:mod.filePath] batchMode:self.isBatchMode];
         return;
     }
     

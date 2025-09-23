@@ -163,6 +163,13 @@
     self.contentView.layer.cornerRadius = 0.0;
     self.modIconView.layer.borderWidth = 0;
     self.selectedBackgroundView = nil;
+    
+    // 确保按钮在重用时可见
+    self.toggleButton.hidden = NO;
+    self.deleteButton.hidden = NO;
+    
+    // 重置contentView的frame
+    self.contentView.frame = CGRectMake(0.0, 0.0, self.bounds.size.width, self.bounds.size.height);
 }
 
 - (void)configureWithMod:(ModItem *)mod {
@@ -237,8 +244,10 @@
         self.openLinkButton.hidden = NO;
         UIImage *globe = [UIImage systemImageNamed:@"globe"];
         if (globe) {
-            globe = [globe imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+            // 设置地球图标为蓝色
+            globe = [globe imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
             [self.openLinkButton setImage:globe forState:UIControlStateNormal];
+            [self.openLinkButton setTintColor:[UIColor systemBlueColor]];
             [self.openLinkButton setTitle:@"" forState:UIControlStateNormal];
         } else {
             [self.openLinkButton setTitle:@"🌐" forState:UIControlStateNormal];
@@ -328,6 +337,10 @@
         
         // Add a 2px inset by adjusting the frame
         self.contentView.frame = CGRectMake(2.0, 2.0, self.bounds.size.width - 4.0, self.bounds.size.height - 4.0);
+        
+        // 在批量模式下隐藏禁用/删除按钮
+        self.toggleButton.hidden = YES;
+        self.deleteButton.hidden = YES;
     } else {
         self.layer.borderColor = [UIColor clearColor].CGColor;
         self.layer.borderWidth = 0.0;
@@ -336,6 +349,10 @@
         
         // Reset the frame
         self.contentView.frame = CGRectMake(0.0, 0.0, self.bounds.size.width, self.bounds.size.height);
+        
+        // 退出批量模式时显示禁用/删除按钮
+        self.toggleButton.hidden = NO;
+        self.deleteButton.hidden = NO;
     }
 
     // Update icon view border to indicate selection
