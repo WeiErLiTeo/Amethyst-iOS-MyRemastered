@@ -1,0 +1,43 @@
+﻿2025-09-26T02:25:08.7927970Z Current runner version: '2.328.0'
+2025-09-26T02:25:08.7945020Z ##[group]Runner Image Provisioner
+2025-09-26T02:25:08.7945580Z Hosted Compute Agent
+2025-09-26T02:25:08.7945920Z Version: 20250912.392
+2025-09-26T02:25:08.7946300Z Commit: d921fda672a98b64f4f82364647e2f10b2267d0b
+2025-09-26T02:25:08.7946740Z Build Date: 2025-09-12T15:23:14Z
+2025-09-26T02:25:08.7947100Z ##[endgroup]
+2025-09-26T02:25:08.7947420Z ##[group]Operating System
+2025-09-26T02:25:08.7947770Z macOS
+2025-09-26T02:25:08.7948070Z 14.7.6
+2025-09-26T02:25:08.7948360Z 23H626
+2025-09-26T02:25:08.7948640Z ##[endgroup]
+2025-09-26T02:25:08.7948940Z ##[group]Runner Image
+2025-09-26T02:25:08.7949270Z Image: macos-14-arm64
+2025-09-26T02:25:08.7949590Z Version: 20250915.1804
+2025-09-26T02:25:08.7950280Z Included Software: https://github.com/actions/runner-images/blob/macos-14-arm64/20250915.1804/images/macos/macos-14-arm64-Readme.md
+2025-09-26T02:25:08.7951260Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-14-arm64%2F20250915.1804
+2025-09-26T02:25:08.7951950Z ##[endgroup]
+2025-09-26T02:25:08.7953540Z ##[group]GITHUB_TOKEN Permissions
+2025-09-26T02:25:08.7954990Z Actions: write
+2025-09-26T02:25:08.7955310Z Attestations: write
+2025-09-26T02:25:08.7955620Z Checks: write
+2025-09-26T02:25:08.7955920Z Contents: write
+2025-09-26T02:25:08.7956220Z Deployments: write
+2025-09-26T02:25:08.7956540Z Discussions: write
+2025-09-26T02:25:08.7956850Z Issues: write
+2025-09-26T02:25:08.7957140Z Metadata: read
+2025-09-26T02:25:08.7957450Z Models: read
+2025-09-26T02:25:08.7957750Z Packages: write
+2025-09-26T02:25:08.7958070Z Pages: write
+2025-09-26T02:25:08.7958380Z PullRequests: write
+2025-09-26T02:25:08.7958710Z RepositoryProjects: write
+2025-09-26T02:25:08.7959050Z SecurityEvents: write
+2025-09-26T02:25:08.7959440Z Statuses: write
+2025-09-26T02:25:08.7959760Z ##[endgroup]
+2025-09-26T02:25:08.7961220Z Secret source: Actions
+2025-09-26T02:25:08.7961620Z Prepare workflow directory
+2025-09-26T02:25:08.8193260Z Prepare all required actions
+2025-09-26T02:25:08.8221070Z Getting action download info
+2025-09-26T02:25:09.3217130Z Download action repository 'actions/checkout@v4' (SHA:08eba0b27e820071cde6df949e0beb9ba4906955)
+2025-09-26T02:25:09.8436740Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+2025-09-26T02:25:10.7012430Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2025-09-26T02:25:10.9716300Z Complete job name: Development build (2, ios)

@@ -256,6 +256,31 @@
     } else {
         self.openLinkButton.hidden = YES;
     }
+    
+    // 根据mod是否被禁用来设置图标和名称的样式
+    if (mod.disabled) {
+        // 图标变灰
+        self.modIconView.alpha = 0.5;
+        
+        // 名称变灰并划掉
+        NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithAttributedString:self.nameLabel.attributedText ?: [[NSAttributedString alloc] initWithString:self.nameLabel.text ?: @""]];
+        [attributedString addAttribute:NSForegroundColorAttributeName value:[UIColor grayColor] range:NSMakeRange(0, attributedString.length)];
+        [attributedString addAttribute:NSStrikethroughStyleAttributeName value:@(NSUnderlineStyleSingle) range:NSMakeRange(0, attributedString.length)];
+        self.nameLabel.attributedText = attributedString;
+    } else {
+        // 恢复图标正常状态
+        self.modIconView.alpha = 1.0;
+        
+        // 恢复名称正常状态
+        if (self.nameLabel.attributedText) {
+            NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithAttributedString:self.nameLabel.attributedText];
+            [attributedString removeAttribute:NSForegroundColorAttributeName range:NSMakeRange(0, attributedString.length)];
+            [attributedString removeAttribute:NSStrikethroughStyleAttributeName range:NSMakeRange(0, attributedString.length)];
+            self.nameLabel.attributedText = attributedString;
+        } else {
+            self.nameLabel.textColor = [UIColor labelColor];
+        }
+    }
 }
 
 #pragma mark - loader icon loader
@@ -315,6 +340,31 @@
 - (void)updateToggleState:(BOOL)disabled {
     NSString *toggleTitle = disabled ? @"启用" : @"禁用";
     [self.toggleButton setTitle:toggleTitle forState:UIControlStateNormal];
+    
+    // 更新图标和名称的样式
+    if (disabled) {
+        // 图标变灰
+        self.modIconView.alpha = 0.5;
+        
+        // 名称变灰并划掉
+        NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithAttributedString:self.nameLabel.attributedText ?: [[NSAttributedString alloc] initWithString:self.nameLabel.text ?: @""]];
+        [attributedString addAttribute:NSForegroundColorAttributeName value:[UIColor grayColor] range:NSMakeRange(0, attributedString.length)];
+        [attributedString addAttribute:NSStrikethroughStyleAttributeName value:@(NSUnderlineStyleSingle) range:NSMakeRange(0, attributedString.length)];
+        self.nameLabel.attributedText = attributedString;
+    } else {
+        // 恢复图标正常状态
+        self.modIconView.alpha = 1.0;
+        
+        // 恢复名称正常状态
+        if (self.nameLabel.attributedText) {
+            NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithAttributedString:self.nameLabel.attributedText];
+            [attributedString removeAttribute:NSForegroundColorAttributeName range:NSMakeRange(0, attributedString.length)];
+            [attributedString removeAttribute:NSStrikethroughStyleAttributeName range:NSMakeRange(0, attributedString.length)];
+            self.nameLabel.attributedText = attributedString;
+        } else {
+            self.nameLabel.textColor = [UIColor labelColor];
+        }
+    }
 }
 
 - (void)updateBatchSelectionState:(BOOL)isSelected batchMode:(BOOL)batchMode {
@@ -338,9 +388,9 @@
         // Add a 2px inset by adjusting the frame
         self.contentView.frame = CGRectMake(2.0, 2.0, self.bounds.size.width - 4.0, self.bounds.size.height - 4.0);
         
-        // 在批量模式下隐藏禁用/删除按钮
-        self.toggleButton.hidden = YES;
-        self.deleteButton.hidden = YES;
+        // 在批量模式下禁用禁用/删除按钮而不是隐藏
+        self.toggleButton.enabled = NO;
+        self.deleteButton.enabled = NO;
     } else {
         self.layer.borderColor = [UIColor clearColor].CGColor;
         self.layer.borderWidth = 0.0;
@@ -350,9 +400,9 @@
         // Reset the frame
         self.contentView.frame = CGRectMake(0.0, 0.0, self.bounds.size.width, self.bounds.size.height);
         
-        // 退出批量模式时显示禁用/删除按钮
-        self.toggleButton.hidden = NO;
-        self.deleteButton.hidden = NO;
+        // 退出批量模式时启用禁用/删除按钮
+        self.toggleButton.enabled = YES;
+        self.deleteButton.enabled = YES;
     }
 
     // Update icon view border to indicate selection
@@ -379,6 +429,11 @@
 }
 
 - (void)openLinkTapped {
+    // 在批量模式下不执行跳转操作
+    if (self.isBatchMode) {
+        return;
+    }
+    
     if (!self.currentMod) return;
     if (!(self.currentMod.homepage.length || self.currentMod.sources.length)) return;
     if ([self.delegate respondsToSelector:@selector(modCellDidTapOpenLink:)]) {
