@@ -259,13 +259,18 @@
     
     // 根据mod是否被禁用来设置图标和名称的样式
     if (mod.disabled) {
-        // 图标变灰
-        self.modIconView.alpha = 0.5;
+        // 图标变灰 (增加虚化强度)
+        self.modIconView.alpha = 0.3;
         
-        // 名称变灰并划掉
+        // 名称变灰并划掉 (不包括版本号)
         NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithAttributedString:self.nameLabel.attributedText ?: [[NSAttributedString alloc] initWithString:self.nameLabel.text ?: @""]];
-        [attributedString addAttribute:NSForegroundColorAttributeName value:[UIColor grayColor] range:NSMakeRange(0, attributedString.length)];
-        [attributedString addAttribute:NSStrikethroughStyleAttributeName value:@(NSUnderlineStyleSingle) range:NSMakeRange(0, attributedString.length)];
+        // 只对名称部分应用样式，版本号部分保持不变
+        NSString *name = mod.displayName ?: mod.fileName;
+        NSRange nameRange = [attributedString.string rangeOfString:name];
+        if (nameRange.location != NSNotFound) {
+            [attributedString addAttribute:NSForegroundColorAttributeName value:[UIColor grayColor] range:nameRange];
+            [attributedString addAttribute:NSStrikethroughStyleAttributeName value:@(NSUnderlineStyleSingle) range:nameRange];
+        }
         self.nameLabel.attributedText = attributedString;
     } else {
         // 恢复图标正常状态
@@ -343,13 +348,20 @@
     
     // 更新图标和名称的样式
     if (disabled) {
-        // 图标变灰
-        self.modIconView.alpha = 0.5;
+        // 图标变灰 (增加虚化强度)
+        self.modIconView.alpha = 0.3;
         
-        // 名称变灰并划掉
+        // 名称变灰并划掉 (不包括版本号)
         NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithAttributedString:self.nameLabel.attributedText ?: [[NSAttributedString alloc] initWithString:self.nameLabel.text ?: @""]];
-        [attributedString addAttribute:NSForegroundColorAttributeName value:[UIColor grayColor] range:NSMakeRange(0, attributedString.length)];
-        [attributedString addAttribute:NSStrikethroughStyleAttributeName value:@(NSUnderlineStyleSingle) range:NSMakeRange(0, attributedString.length)];
+        // 只对名称部分应用样式，版本号部分保持不变
+        if (self.currentMod) {
+            NSString *name = self.currentMod.displayName ?: self.currentMod.fileName;
+            NSRange nameRange = [attributedString.string rangeOfString:name];
+            if (nameRange.location != NSNotFound) {
+                [attributedString addAttribute:NSForegroundColorAttributeName value:[UIColor grayColor] range:nameRange];
+                [attributedString addAttribute:NSStrikethroughStyleAttributeName value:@(NSUnderlineStyleSingle) range:nameRange];
+            }
+        }
         self.nameLabel.attributedText = attributedString;
     } else {
         // 恢复图标正常状态
