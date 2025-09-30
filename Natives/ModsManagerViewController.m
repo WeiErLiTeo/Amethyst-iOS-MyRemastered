@@ -247,6 +247,8 @@
     // 确保在退出批量模式时清除所有选择
     if (!self.isBatchMode) {
         [self.selectedModPaths removeAllObjects];
+        // 修复：确保退出批量模式后按钮状态正确更新
+        [self updateBatchButtonStates];
     }
 }
 
@@ -367,6 +369,9 @@
             
             // Clear selection after batch operation
             [strongSelf.selectedModPaths removeAllObjects];
+            
+            // 修复：确保批量操作后按钮状态正确更新
+            [strongSelf updateBatchButtonStates];
         });
     });
 }
