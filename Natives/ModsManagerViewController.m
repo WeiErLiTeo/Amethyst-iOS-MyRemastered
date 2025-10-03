@@ -42,12 +42,6 @@
     self.isBatchMode = NO;
     self.selectedModPaths = [NSMutableSet set];
 
-    // 创建搜索栏
-    self.searchBar = [[UISearchBar alloc] initWithFrame:CGRectZero];
-    self.searchBar.placeholder = @"搜索 Mod...";
-    self.searchBar.delegate = self;
-    self.searchBar.translatesAutoresizingMaskIntoConstraints = NO;
-    
     // Table view
     self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
     self.tableView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -57,6 +51,14 @@
     self.tableView.rowHeight = 76;
     self.tableView.tableFooterView = [UIView new];
     [self.view addSubview:self.tableView];
+
+    // 创建搜索栏
+    self.searchBar = [[UISearchBar alloc] initWithFrame:CGRectZero];
+    self.searchBar.placeholder = @"搜索 Mod...";
+    self.searchBar.delegate = self;
+    self.searchBar.translatesAutoresizingMaskIntoConstraints = NO;
+    // 将搜索栏添加为tableView的header
+    self.tableView.tableHeaderView = self.searchBar;
 
     // Refresh control
     UIRefreshControl *rc = [UIRefreshControl new];
@@ -99,11 +101,7 @@
 
     // Setup constraints
     [NSLayoutConstraint activateConstraints:@[
-        [self.searchBar.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
-        [self.searchBar.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-        [self.searchBar.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        
-        [self.tableView.topAnchor constraintEqualToAnchor:self.searchBar.bottomAnchor],
+        [self.tableView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
         [self.tableView.bottomAnchor constraintEqualToAnchor:self.bottomToolbar.topAnchor],
         [self.tableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.tableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
