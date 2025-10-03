@@ -11,10 +11,11 @@
 #import "ModService.h"
 #import "ModItem.h"
 
-@interface ModsManagerViewController () <UITableViewDataSource, UITableViewDelegate, ModTableViewCellDelegate>
+@interface ModsManagerViewController () <UITableViewDataSource, UITableViewDelegate, ModTableViewCellDelegate, UISearchBarDelegate>
 
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) NSMutableArray<ModItem *> *mods;
+@property (nonatomic, strong) NSMutableArray<ModItem *> *filteredMods; // 用于存储搜索结果
 @property (nonatomic, strong) UIActivityIndicatorView *activityIndicator;
 @property (nonatomic, strong) UILabel *emptyLabel;
 @property (nonatomic, strong) UIBarButtonItem *batchButton;
@@ -25,6 +26,7 @@
 @property (nonatomic, strong) UIBarButtonItem *selectAllButton;
 @property (nonatomic, strong) UIBarButtonItem *flexibleSpace;
 @property (nonatomic, strong) UIBarButtonItem *fixedSpace;
+@property (nonatomic, strong) UISearchBar *searchBar; // 搜索栏
 
 @end
 
@@ -40,6 +42,12 @@
     self.isBatchMode = NO;
     self.selectedModPaths = [NSMutableSet set];
 
+    // 创建搜索栏
+    self.searchBar = [[UISearchBar alloc] initWithFrame:CGRectZero];
+    self.searchBar.placeholder = @"搜索 Mod...";
+    self.searchBar.delegate = self;
+    self.searchBar.translatesAutoresizingMaskIntoConstraints = NO;
+    
     // Table view
     self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
     self.tableView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -91,7 +99,11 @@
 
     // Setup constraints
     [NSLayoutConstraint activateConstraints:@[
-        [self.tableView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [self.searchBar.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+        [self.searchBar.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [self.searchBar.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        
+        [self.tableView.topAnchor constraintEqualToAnchor:self.searchBar.bottomAnchor],
         [self.tableView.bottomAnchor constraintEqualToAnchor:self.bottomToolbar.topAnchor],
         [self.tableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.tableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
@@ -112,6 +124,7 @@
 
     // Initialize data
     self.mods = [NSMutableArray array];
+    self.filteredMods = [NSMutableArray array]; // 初始化filteredMods
     
     // Initialize batch button states
     [self updateBatchButtonStates];
@@ -155,7 +168,12 @@
             [strongSelf.mods removeAllObjects];
             if (mods.count > 0) {
                 [strongSelf.mods addObjectsFromArray:mods];
-                strongSelf.emptyLabel.hidden = YES;
+                // 如果没有进行搜索，则显示所有Mod；否则显示搜索结果
+                if (strongSelf.searchBar.text.length == 0) {
+                    [strongSelf.filteredMods removeAllObjects];
+                    [strongSelf.filteredMods addObjectsFromArray:mods];
+                    strongSelf.emptyLabel.hidden = YES;
+                }
             } else {
                 strongSelf.emptyLabel.hidden = NO;
             }
@@ -193,17 +211,51 @@
     }];
 }
 
+#pragma mark - UISearchBarDelegate
+
+- (void)searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)searchText {
+    [self filterModsForSearchText:searchText];
+}
+
+- (void)searchBarSearchButtonClicked:(UISearchBar *)searchBar {
+    [searchBar resignFirstResponder];
+}
+
+- (void)searchBarCancelButtonClicked:(UISearchBar *)searchBar {
+    searchBar.text = @"";
+    [self filterModsForSearchText:@""];
+    [searchBar resignFirstResponder];
+}
+
+- (void)filterModsForSearchText:(NSString *)searchText {
+    if (searchText.length == 0) {
+        // 如果搜索文本为空，则显示所有Mod
+        [self.filteredMods removeAllObjects];
+        [self.filteredMods addObjectsFromArray:self.mods];
+    } else {
+        // 根据搜索文本过滤Mod
+        NSPredicate *predicate = [NSPredicate predicateWithFormat:@"displayName CONTAINS[cd] %@ OR modDescription CONTAINS[cd] %@", searchText, searchText];
+        self.filteredMods = [[self.mods filteredArrayUsingPredicate:predicate] mutableCopy];
+    }
+    
+    // 更新表格视图
+    [self.tableView reloadData];
+    
+    // 更新空标签的可见性
+    self.emptyLabel.hidden = (self.filteredMods.count > 0);
+}
+
 #pragma mark - UITableView DataSource
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return (NSInteger)self.mods.count;
+    return (NSInteger)self.filteredMods.count;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     ModTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"ModCell" forIndexPath:indexPath];
     ModItem *m = nil;
-    if ((NSUInteger)indexPath.row < self.mods.count) {
-        m = self.mods[indexPath.row];
+    if ((NSUInteger)indexPath.row < self.filteredMods.count) {
+        m = self.filteredMods[indexPath.row];
     }
     cell.delegate = self;
     if (m) {
@@ -222,8 +274,8 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     if (self.isBatchMode) {
-        if ((NSUInteger)indexPath.row < self.mods.count) {
-            ModItem *mod = self.mods[indexPath.row];
+        if ((NSUInteger)indexPath.row < self.filteredMods.count) {
+            ModItem *mod = self.filteredMods[indexPath.row];
             [self toggleModSelection:mod.filePath];
             // Update batch button states
             [self updateBatchButtonStates];
@@ -297,7 +349,7 @@
     [self.selectedModPaths removeAllObjects];
     
     // Select all mods
-    for (ModItem *mod in self.mods) {
+    for (ModItem *mod in self.filteredMods) {
         [self.selectedModPaths addObject:mod.filePath];
     }
     
@@ -411,8 +463,8 @@
 
 - (void)modCellDidTapOpenLink:(UITableViewCell *)cell {
     NSIndexPath *ip = [self.tableView indexPathForCell:cell];
-    if (!ip || (NSUInteger)ip.row >= self.mods.count) return;
-    ModItem *mod = self.mods[ip.row];
+    if (!ip || (NSUInteger)ip.row >= self.filteredMods.count) return;
+    ModItem *mod = self.filteredMods[ip.row];
     
     NSURL *url = nil;
     if (mod.homepage && mod.homepage.length > 0) {
@@ -430,8 +482,8 @@
 
 - (void)modCellDidTapToggle:(UITableViewCell *)cell {
     NSIndexPath *ip = [self.tableView indexPathForCell:cell];
-    if (!ip || (NSUInteger)ip.row >= self.mods.count) return;
-    ModItem *mod = self.mods[ip.row];
+    if (!ip || (NSUInteger)ip.row >= self.filteredMods.count) return;
+    ModItem *mod = self.filteredMods[ip.row];
     
     // In batch mode, toggle selection instead of enabling/disabling
     if (self.isBatchMode) {
@@ -475,8 +527,8 @@
 
 - (void)modCellDidTapDelete:(UITableViewCell *)cell {
     NSIndexPath *ip = [self.tableView indexPathForCell:cell];
-    if (!ip || (NSUInteger)ip.row >= self.mods.count) return;
-    ModItem *mod = self.mods[ip.row];
+    if (!ip || (NSUInteger)ip.row >= self.filteredMods.count) return;
+    ModItem *mod = self.filteredMods[ip.row];
     
     // In batch mode, toggle selection instead of deleting
     if (self.isBatchMode) {
@@ -503,10 +555,17 @@
             });
         } else {
             dispatch_async(dispatch_get_main_queue(), ^{
-                if ((NSUInteger)ip.row < strongSelf.mods.count) {
-                    [strongSelf.mods removeObjectAtIndex:ip.row];
+                if ((NSUInteger)ip.row < strongSelf.filteredMods.count) {
+                    // 从filteredMods和mods中移除
+                    NSUInteger originalIndex = [strongSelf.mods indexOfObject:mod];
+                    if (originalIndex != NSNotFound) {
+                        [strongSelf.mods removeObjectAtIndex:originalIndex];
+                    }
+                    [strongSelf.filteredMods removeObjectAtIndex:ip.row];
+                    
+                    // 更新表格视图
                     [strongSelf.tableView deleteRowsAtIndexPaths:@[ip] withRowAnimation:UITableViewRowAnimationAutomatic];
-                    strongSelf.emptyLabel.hidden = (strongSelf.mods.count != 0);
+                    strongSelf.emptyLabel.hidden = (strongSelf.filteredMods.count != 0);
                 } else {
                     [strongSelf refreshList];
                 }
@@ -524,8 +583,8 @@
 
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
     if (editingStyle == UITableViewCellEditingStyleDelete) {
-        if ((NSUInteger)indexPath.row >= self.mods.count) return;
-        ModItem *m = self.mods[indexPath.row];
+        if ((NSUInteger)indexPath.row >= self.filteredMods.count) return;
+        ModItem *m = self.filteredMods[indexPath.row];
         __weak typeof(self) weakSelf = self;
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
             NSError *err = nil;
@@ -538,10 +597,17 @@
                     [ac addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:nil]];
                     [strongSelf presentViewController:ac animated:YES completion:nil];
                 } else {
-                    if ((NSUInteger)indexPath.row < strongSelf.mods.count) {
-                        [strongSelf.mods removeObjectAtIndex:indexPath.row];
+                    if ((NSUInteger)indexPath.row < strongSelf.filteredMods.count) {
+                        // 从filteredMods和mods中移除
+                        NSUInteger originalIndex = [strongSelf.mods indexOfObject:m];
+                        if (originalIndex != NSNotFound) {
+                            [strongSelf.mods removeObjectAtIndex:originalIndex];
+                        }
+                        [strongSelf.filteredMods removeObjectAtIndex:indexPath.row];
+                        
+                        // 更新表格视图
                         [strongSelf.tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
-                        strongSelf.emptyLabel.hidden = (strongSelf.mods.count != 0);
+                        strongSelf.emptyLabel.hidden = (strongSelf.filteredMods.count != 0);
                     } else {
                         [strongSelf refreshList];
                     }
