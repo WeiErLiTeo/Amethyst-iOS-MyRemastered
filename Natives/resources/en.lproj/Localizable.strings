@@ -330,3 +330,8 @@
 "controller_configurator.section.footer.menu_mappings" = "Bindings when the mouse is not locked, such as on the title screen or in the pause menu.";
 "controller_configurator.section.controller_style" = "Controller type";
 "controller_configurator.section.footer.controller_style" = "Show different controller button names in this configurator.";
+
+"preference.title.appicon-custom" = "Custom";
+"preference.title.custom_appicon" = "Custom App Icon";
+"preference.detail.custom_appicon" = "Select a custom image to use as the app icon";
+"提示" = "Notice";
