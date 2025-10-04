@@ -1,0 +1,20 @@
+﻿2025-10-04T04:03:59.7627740Z ##[group]Run brew install ldid || true
+2025-10-04T04:03:59.7628460Z [36;1mbrew install ldid || true[0m
+2025-10-04T04:03:59.7935920Z shell: /bin/bash -e {0}
+2025-10-04T04:03:59.7936200Z ##[endgroup]
+2025-10-04T04:04:02.0737660Z [32m==>[0m [1mFetching downloads for: [32mldid[39m[0m
+2025-10-04T04:04:02.0766010Z [34m==>[0m [1mDownloading https://ghcr.io/v2/homebrew/core/ldid/manifests/2.1.5_1[0m
+2025-10-04T04:04:02.5640230Z [32m==>[0m [1mFetching dependencies for ldid: [32mlibplist[39m[0m
+2025-10-04T04:04:02.5648360Z [34m==>[0m [1mDownloading https://ghcr.io/v2/homebrew/core/libplist/manifests/2.7.0[0m
+2025-10-04T04:04:02.9702080Z [32m==>[0m [1mFetching [32mlibplist[39m[0m
+2025-10-04T04:04:02.9805010Z [34m==>[0m [1mDownloading https://ghcr.io/v2/homebrew/core/libplist/blobs/sha256:06036e6de87c0a8bfc917d72f2af3f63ea6eb557391035782ca8bddb5506c342[0m
+2025-10-04T04:04:03.3981900Z [32m==>[0m [1mFetching [32mldid[39m[0m
+2025-10-04T04:04:03.3990560Z [34m==>[0m [1mDownloading https://ghcr.io/v2/homebrew/core/ldid/blobs/sha256:e3c26343041639b82e88edf54d3af9f579876f800b7aeada94d36c807e441c27[0m
+2025-10-04T04:04:03.8775580Z [32m==>[0m [1mInstalling ldid dependency: [32mlibplist[39m[0m
+2025-10-04T04:04:03.8779820Z [34m==>[0m [1mDownloading https://ghcr.io/v2/homebrew/core/libplist/manifests/2.7.0[0m
+2025-10-04T04:04:03.8786600Z Already downloaded: /Users/runner/Library/Caches/Homebrew/downloads/e0496924f58628f0bb8aae0a1177d8f8f003e2e9f9f949939fd2399aced47c4d--libplist-2.7.0.bottle_manifest.json
+2025-10-04T04:04:03.8993830Z [34m==>[0m [1mPouring libplist--2.7.0.arm64_sonoma.bottle.tar.gz[0m
+2025-10-04T04:04:04.4016520Z 🍺  /opt/homebrew/Cellar/libplist/2.7.0: 32 files, 646.5KB
+2025-10-04T04:04:04.4118060Z [34m==>[0m [1mPouring ldid--2.1.5_1.arm64_sonoma.bottle.tar.gz[0m
+2025-10-04T04:04:04.5954490Z 🍺  /opt/homebrew/Cellar/ldid/2.1.5_1: 6 files, 286KB
+2025-10-04T04:04:04.5958840Z [34m==>[0m [1mNo outdated dependents to upgrade![0m

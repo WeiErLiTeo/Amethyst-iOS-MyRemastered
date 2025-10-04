@@ -1,0 +1,4 @@
+﻿2025-09-26T02:26:59.1012720Z ##[group]Run echo "sha=$(git ls-remote https://github.com/PojavLauncherTeam/gl4es-114-extra refs/heads/master | grep -io '^\S*')" >> $GITHUB_OUTPUT
+2025-09-26T02:26:59.1013920Z [36;1mecho "sha=$(git ls-remote https://github.com/PojavLauncherTeam/gl4es-114-extra refs/heads/master | grep -io '^\S*')" >> $GITHUB_OUTPUT[0m
+2025-09-26T02:26:59.2124650Z shell: /bin/bash -e {0}
+2025-09-26T02:26:59.2125300Z ##[endgroup]
