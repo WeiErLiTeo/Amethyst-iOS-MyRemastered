@@ -400,13 +400,13 @@
         // Add a 2px inset by adjusting the frame
         self.contentView.frame = CGRectMake(2.0, 2.0, self.bounds.size.width - 4.0, self.bounds.size.height - 4.0);
         
-        // 在批量模式下禁用所有按钮而不是隐藏
-        self.toggleButton.enabled = NO;
-        self.toggleButton.alpha = 0.5;  // 添加虚化效果
-        self.deleteButton.enabled = NO;
-        self.deleteButton.alpha = 0.5;  // 添加虚化效果
-        self.openLinkButton.enabled = NO;
-        self.openLinkButton.alpha = 0.5;  // 添加虚化效果
+        // 在批量模式下不禁用按钮，保持正常状态
+        self.toggleButton.enabled = YES;
+        self.toggleButton.alpha = 1.0;
+        self.deleteButton.enabled = YES;
+        self.deleteButton.alpha = 1.0;
+        self.openLinkButton.enabled = YES;
+        self.openLinkButton.alpha = 1.0;
     } else {
         self.layer.borderColor = [UIColor clearColor].CGColor;
         self.layer.borderWidth = 0.0;
