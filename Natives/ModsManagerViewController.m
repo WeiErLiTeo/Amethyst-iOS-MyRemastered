@@ -42,6 +42,13 @@
     self.isBatchMode = NO;
     self.selectedModPaths = [NSMutableSet set];
 
+    // Search bar
+    self.searchBar = [[UISearchBar alloc] initWithFrame:CGRectZero];
+    self.searchBar.translatesAutoresizingMaskIntoConstraints = NO;
+    self.searchBar.delegate = self;
+    self.searchBar.placeholder = @"搜索 Mod...";
+    [self.view addSubview:self.searchBar];
+    
     // Table view
     self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
     self.tableView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -51,14 +58,6 @@
     self.tableView.rowHeight = 76;
     self.tableView.tableFooterView = [UIView new];
     [self.view addSubview:self.tableView];
-
-    // 创建搜索栏
-    self.searchBar = [[UISearchBar alloc] initWithFrame:CGRectZero];
-    self.searchBar.placeholder = @"搜索 Mod...";
-    self.searchBar.delegate = self;
-    self.searchBar.translatesAutoresizingMaskIntoConstraints = NO;
-    // 将搜索栏添加为tableView的header
-    self.tableView.tableHeaderView = self.searchBar;
 
     // Refresh control
     UIRefreshControl *rc = [UIRefreshControl new];
@@ -101,7 +100,11 @@
 
     // Setup constraints
     [NSLayoutConstraint activateConstraints:@[
-        [self.tableView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [self.searchBar.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+        [self.searchBar.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [self.searchBar.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        
+        [self.tableView.topAnchor constraintEqualToAnchor:self.searchBar.bottomAnchor],
         [self.tableView.bottomAnchor constraintEqualToAnchor:self.bottomToolbar.topAnchor],
         [self.tableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.tableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
@@ -212,7 +215,7 @@
 #pragma mark - UISearchBarDelegate
 
 - (void)searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)searchText {
-    [self filterModsForSearchText:searchText];
+    [self filterMods];
 }
 
 - (void)searchBarSearchButtonClicked:(UISearchBar *)searchBar {
@@ -221,40 +224,53 @@
 
 - (void)searchBarCancelButtonClicked:(UISearchBar *)searchBar {
     searchBar.text = @"";
-    [self filterModsForSearchText:@""];
+    [self filterMods];
     [searchBar resignFirstResponder];
 }
 
-- (void)filterModsForSearchText:(NSString *)searchText {
-    if (searchText.length == 0) {
-        // 如果搜索文本为空，则显示所有Mod
-        [self.filteredMods removeAllObjects];
-        [self.filteredMods addObjectsFromArray:self.mods];
-    } else {
-        // 根据搜索文本过滤Mod
-        NSPredicate *predicate = [NSPredicate predicateWithFormat:@"displayName CONTAINS[cd] %@ OR modDescription CONTAINS[cd] %@", searchText, searchText];
-        self.filteredMods = [[self.mods filteredArrayUsingPredicate:predicate] mutableCopy];
+- (void)filterMods {
+    [self.filteredMods removeAllObjects];
+    
+    if (self.searchBar.text.length == 0) {
+        [self.tableView reloadData];
+        return;
     }
     
-    // 更新表格视图
-    [self.tableView reloadData];
+    NSString *searchText = [self.searchBar.text lowercaseString];
+    for (ModItem *mod in self.mods) {
+        if ([mod.displayName.lowercaseString containsString:searchText] ||
+            [mod.fileName.lowercaseString containsString:searchText] ||
+            [mod.modDescription.lowercaseString containsString:searchText]) {
+            [self.filteredMods addObject:mod];
+        }
+    }
     
-    // 更新空标签的可见性
-    self.emptyLabel.hidden = (self.filteredMods.count > 0);
+    [self.tableView reloadData];
 }
 
 #pragma mark - UITableView DataSource
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return (NSInteger)self.filteredMods.count;
+    if (self.searchBar.text.length > 0) {
+        return (NSInteger)self.filteredMods.count;
+    }
+    return (NSInteger)self.mods.count;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     ModTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"ModCell" forIndexPath:indexPath];
     ModItem *m = nil;
-    if ((NSUInteger)indexPath.row < self.filteredMods.count) {
-        m = self.filteredMods[indexPath.row];
+    
+    if (self.searchBar.text.length > 0) {
+        if ((NSUInteger)indexPath.row < self.filteredMods.count) {
+            m = self.filteredMods[indexPath.row];
+        }
+    } else {
+        if ((NSUInteger)indexPath.row < self.mods.count) {
+            m = self.mods[indexPath.row];
+        }
     }
+    
     cell.delegate = self;
     if (m) {
         [cell configureWithMod:m];
