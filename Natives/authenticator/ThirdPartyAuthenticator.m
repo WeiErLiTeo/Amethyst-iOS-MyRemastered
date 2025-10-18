@@ -241,7 +241,28 @@ static NSError* createError(NSString *message, NSInteger code) {
                     [alert addAction:cancelAction];
                     
                     // Get ViewController to present alert
-                    UIViewController *rootVC = [UIApplication sharedApplication].keyWindow.rootViewController;
+                    UIViewController *rootVC = nil;
+                    UIWindow *keyWindow = [UIApplication sharedApplication].delegate.window;
+                    if (!keyWindow) {
+                        // Fallback for iOS 13+ scene-based apps
+                        for (UIWindowScene *windowScene in [UIApplication sharedApplication].connectedScenes) {
+                            if (windowScene.activationState == UISceneActivationStateForegroundActive) {
+                                keyWindow = windowScene.windows.firstObject;
+                                break;
+                            }
+                        }
+                        // If no active scene, use the first available window
+                        if (!keyWindow && [UIApplication sharedApplication].connectedScenes.count > 0) {
+                            UIWindowScene *firstScene = [UIApplication sharedApplication].connectedScenes.firstObject;
+                            if (firstScene.windows.count > 0) {
+                                keyWindow = firstScene.windows.firstObject;
+                            }
+                        }
+                    }
+                    if (keyWindow) {
+                        rootVC = keyWindow.rootViewController;
+                    }
+                    
                     if (rootVC) {
                         [rootVC presentViewController:alert animated:YES completion:nil];
                     } else {
