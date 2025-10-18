@@ -4,7 +4,7 @@
 #import "../utils.h"
 
 // URL for downloading authlib-injector
-#define AUTHLIB_INJECTOR_URL @"https://github.com/yushijinhun/authlib-injector/releases/download/v1.2.5/authlib-injector-1.2.5.jar"
+#define AUTHLIB_INJECTOR_URL @"https://bmclapi2.bangbang93.com/mirrors/authlib-injector/artifact/54/authlib-injector-1.2.6.jar"
 #define AUTHLIB_INJECTOR_FILE @"authlib-injector.jar"
 
 // Helper function to create NSError
