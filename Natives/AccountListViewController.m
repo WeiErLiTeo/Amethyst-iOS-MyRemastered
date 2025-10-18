@@ -1,6 +1,7 @@
 #import <AuthenticationServices/AuthenticationServices.h>
 
 #import "authenticator/BaseAuthenticator.h"
+#import "authenticator/ThirdPartyAuthenticator.h"
 #import "AccountListViewController.h"
 #import "AFNetworking.h"
 #import "LauncherPreferences.h"
@@ -99,7 +100,16 @@
             [self callbackMicrosoftAuth:status success:success forCell:cell];
         });
     };
-    [[BaseAuthenticator loadSavedName:self.accountList[indexPath.row][@"username"]] refreshTokenWithCallback:callback];
+    
+    // Check if this is a third party account
+    NSDictionary *accountData = self.accountList[indexPath.row];
+    if (accountData[@"clientToken"] != nil) {
+        // This is a third party account
+        [[ThirdPartyAuthenticator loadSavedName:accountData[@"username"]] refreshTokenWithCallback:callback];
+    } else {
+        // This is a Microsoft or local account
+        [[BaseAuthenticator loadSavedName:accountData[@"username"]] refreshTokenWithCallback:callback];
+    }
 }
 
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -146,6 +156,10 @@
         [self actionLoginMicrosoft:sender];
     }];
     [picker addAction:actionMicrosoft];
+    UIAlertAction *actionThirdParty = [UIAlertAction actionWithTitle:localize(@"login.option.3rdparty", nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        [self actionLoginThirdParty:sender];
+    }];
+    [picker addAction:actionThirdParty];
     UIAlertAction *actionLocal = [UIAlertAction actionWithTitle:localize(@"login.option.local", nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
         [self actionLoginLocal:sender];
     }];
@@ -189,6 +203,94 @@
             };
             [[[LocalAuthenticator alloc] initWithInput:usernameField.text] loginWithCallback:callback];
         }
+    }]];
+    [controller addAction:[UIAlertAction actionWithTitle:localize(@"Cancel", nil) style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:controller animated:YES completion:nil];
+}
+
+- (void)actionLoginThirdParty:(UIView *)sender {
+    UIAlertController *controller = [UIAlertController alertControllerWithTitle:localize(@"Sign in", nil) message:localize(@"login.option.3rdparty", nil) preferredStyle:UIAlertControllerStyleAlert];
+    [controller addTextFieldWithConfigurationHandler:^(UITextField *textField) {
+        textField.placeholder = localize(@"login.alert.field.username", nil);
+        textField.clearButtonMode = UITextFieldViewModeWhileEditing;
+        textField.borderStyle = UITextBorderStyleRoundedRect;
+    }];
+    [controller addTextFieldWithConfigurationHandler:^(UITextField *textField) {
+        textField.placeholder = localize(@"login.alert.field.password", nil);
+        textField.clearButtonMode = UITextFieldViewModeWhileEditing;
+        textField.borderStyle = UITextBorderStyleRoundedRect;
+        textField.secureTextEntry = YES;
+    }];
+    [controller addTextFieldWithConfigurationHandler:^(UITextField *textField) {
+        textField.placeholder = localize(@"login.alert.field.server", nil);
+        textField.clearButtonMode = UITextFieldViewModeWhileEditing;
+        textField.borderStyle = UITextBorderStyleRoundedRect;
+        textField.text = @"https://authserver.ely.by"; // Default server
+    }];
+    [controller addAction:[UIAlertAction actionWithTitle:localize(@"OK", nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        NSArray *textFields = controller.textFields;
+        UITextField *usernameField = textFields[0];
+        UITextField *passwordField = textFields[1];
+        UITextField *serverField = textFields[2];
+        
+        if (usernameField.text.length == 0 || passwordField.text.length == 0) {
+            controller.message = localize(@"login.error.fields.empty", nil);
+            [self presentViewController:controller animated:YES completion:nil];
+            return;
+        }
+        
+        // Validate server URL
+        if (serverField.text.length > 0) {
+            NSURL *url = [NSURL URLWithString:serverField.text];
+            if (!url || !url.scheme || !url.host) {
+                controller.message = localize(@"login.error.invalid_server", nil);
+                [self presentViewController:controller animated:YES completion:nil];
+                return;
+            }
+        }
+        
+        self.modalInPresentation = YES;
+        self.tableView.userInteractionEnabled = NO;
+        
+        // Check if sender is a table view cell
+        UITableViewCell *cell = nil;
+        if ([sender isKindOfClass:[UITableViewCell class]]) {
+            cell = (UITableViewCell *)sender;
+            [self addActivityIndicatorTo:cell];
+        }
+        
+        ThirdPartyAuthenticator *auth = [[ThirdPartyAuthenticator alloc] initWithInput:usernameField.text];
+        auth.authData[@"password"] = passwordField.text;
+        if (serverField.text.length > 0) {
+            auth.authData[@"authserver"] = serverField.text;
+        }
+        
+        id callback = ^(id status, BOOL success) {
+            if (cell) {
+                [self callbackMicrosoftAuth:status success:success forCell:cell];
+            } else {
+                // Handle case when sender is not a table view cell
+                if (!success && status != nil) {
+                    self.modalInPresentation = NO;
+                    self.tableView.userInteractionEnabled = YES;
+                    
+                    if ([status isKindOfClass:[NSError class]]) {
+                        NSLog(@"[ThirdParty] Error: %@", [status localizedDescription]);
+                        showDialog(localize(@"Error", nil), [status localizedDescription]);
+                    } else {
+                        showDialog(localize(@"Error", nil), status);
+                    }
+                } else if (success) {
+                    if ([status isKindOfClass:[NSString class]] && [status isEqualToString:@"DEMO"]) {
+                        showDialog(localize(@"login.warn.title.demomode", nil), localize(@"login.warn.message.demomode", nil));
+                    }
+                    self.whenItemSelected();
+                    [self dismissViewControllerAnimated:YES completion:nil];
+                }
+            }
+        };
+        
+        [auth loginWithCallback:callback];
     }]];
     [controller addAction:[UIAlertAction actionWithTitle:localize(@"Cancel", nil) style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:controller animated:YES completion:nil];
