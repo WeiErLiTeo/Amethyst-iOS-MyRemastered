@@ -253,9 +253,12 @@ static NSError* createError(NSString *message, NSInteger code) {
                         }
                         // If no active scene, use the first available window
                         if (!keyWindow && [UIApplication sharedApplication].connectedScenes.count > 0) {
-                            UIWindowScene *firstScene = [UIApplication sharedApplication].connectedScenes.firstObject;
-                            if (firstScene.windows.count > 0) {
-                                keyWindow = firstScene.windows.firstObject;
+                            NSSet<UIScene *> *scenes = [UIApplication sharedApplication].connectedScenes;
+                            if (scenes.count > 0) {
+                                UIWindowScene *firstScene = (UIWindowScene *)[scenes anyObject];
+                                if (firstScene.windows.count > 0) {
+                                    keyWindow = firstScene.windows.firstObject;
+                                }
                             }
                         }
                     }
