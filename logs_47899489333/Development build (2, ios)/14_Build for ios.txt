@@ -1,0 +1,244 @@
+﻿2025-10-18T12:49:28.2161500Z ##[group]Run export PATH=/opt/homebrew/bin:$PATH
+2025-10-18T12:49:28.2162010Z [36;1mexport PATH=/opt/homebrew/bin:$PATH[0m
+2025-10-18T12:49:28.2162310Z [36;1mexport SLIMMED=0[0m
+2025-10-18T12:49:28.2162560Z [36;1mif [ "ios" == "ios" ]; then[0m
+2025-10-18T12:49:28.2163020Z [36;1m  # Build ipa and tipa for iOS[0m
+2025-10-18T12:49:28.2163440Z [36;1m  gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=2[0m
+2025-10-18T12:49:28.2163940Z [36;1m  gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=2 TROLLSTORE_JIT_ENT=1[0m
+2025-10-18T12:49:28.2164370Z [36;1melif [ "ios" == "tvos" ]; then[0m
+2025-10-18T12:49:28.2164710Z [36;1m  # Build tipa only for tvOS[0m
+2025-10-18T12:49:28.2165120Z [36;1m  gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=2 TROLLSTORE_JIT_ENT=1[0m
+2025-10-18T12:49:28.2165520Z [36;1melse[0m
+2025-10-18T12:49:28.2165810Z [36;1m  # Build ipa only for everything else[0m
+2025-10-18T12:49:28.2166210Z [36;1m  gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=2[0m
+2025-10-18T12:49:28.2166620Z [36;1mfi[0m
+2025-10-18T12:49:28.2240790Z shell: /bin/bash -e {0}
+2025-10-18T12:49:28.2241080Z env:
+2025-10-18T12:49:28.2241320Z   IPHONEOS_DEPLOYMENT_TARGET: 14
+2025-10-18T12:49:28.2241600Z ##[endgroup]
+2025-10-18T12:49:28.3477030Z Makefile:55: Building on macOS.
+2025-10-18T12:49:28.3495940Z Makefile:79: Set PLATFORM to 2, which is equal to iOS.
+2025-10-18T12:49:30.6195460Z [Amethyst v1.0] native - start
+2025-10-18T12:49:30.6458450Z gmake[1]: warning: -j3 forced in submake: resetting jobserver mode.
+2025-10-18T12:49:30.6458910Z [Amethyst v1.0] java - start
+2025-10-18T12:49:30.6467230Z [Amethyst v1.0] assets - start
+2025-10-18T12:49:30.6479460Z gmake[1]: Entering directory '/Users/runner/work/Amethyst-iOS-MyRemastered/Amethyst-iOS-MyRemastered/JavaApp'
+2025-10-18T12:49:30.6589220Z CMake Warning:
+2025-10-18T12:49:30.6591180Z   Ignoring extra path from command line:
+2025-10-18T12:49:30.6603580Z 
+2025-10-18T12:49:30.6611340Z    "/Users/runner/work/Amethyst-iOS-MyRemastered/Amethyst-iOS-MyRemastered/Natives/build"
+2025-10-18T12:49:30.6645990Z 
+2025-10-18T12:49:30.6692880Z 
+2025-10-18T12:49:30.6706360Z CMake Warning:
+2025-10-18T12:49:30.6726940Z   Ignoring extra path from command line:
+2025-10-18T12:49:30.6783220Z 
+2025-10-18T12:49:30.6783600Z Compiling src/launcher/net/kdt/pojavlaunch/PojavClassLoader.java
+2025-10-18T12:49:30.6819440Z    "."
+2025-10-18T12:49:30.6819760Z Compiling src/launcher/net/kdt/pojavlaunch/PojavLauncher.java
+2025-10-18T12:49:30.6954190Z 
+2025-10-18T12:49:30.6954520Z Compiling src/launcher/net/kdt/pojavlaunch/LWJGLGLFWKeycode.java
+2025-10-18T12:49:30.7055140Z 
+2025-10-18T12:49:30.7156950Z CMake Deprecation Warning at CMakeLists.txt:1 (cmake_minimum_required):
+2025-10-18T12:49:30.7257960Z   Compatibility with CMake < 3.10 will be removed from a future version of
+2025-10-18T12:49:30.7371060Z   CMake.
+2025-10-18T12:49:30.7472040Z 
+2025-10-18T12:49:30.7573410Z   Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+2025-10-18T12:49:30.7678380Z   to tell CMake that the project requires at least <min> but has been updated
+2025-10-18T12:49:30.7782810Z   to work with policies introduced by <max> or earlier.
+2025-10-18T12:49:30.7887040Z 
+2025-10-18T12:49:30.7996200Z 
+2025-10-18T12:49:31.3512050Z -- The C compiler identification is AppleClang 15.0.0.15000309
+2025-10-18T12:49:35.0674290Z Compiling src/launcher/net/kdt/pojavlaunch/uikit/UIKitCallback.java
+2025-10-18T12:49:36.4363990Z -- The CXX compiler identification is AppleClang 15.0.0.15000309
+2025-10-18T12:49:36.4866110Z -- Detecting C compiler ABI info
+2025-10-18T12:49:36.6763340Z -- Detecting C compiler ABI info - done
+2025-10-18T12:49:36.6981480Z -- Check for working C compiler: /usr/bin/cc - skipped
+2025-10-18T12:49:36.7082750Z -- Detecting C compile features
+2025-10-18T12:49:36.7183920Z -- Detecting C compile features - done
+2025-10-18T12:49:36.7285170Z -- Detecting CXX compiler ABI info
+2025-10-18T12:49:36.9257710Z -- Detecting CXX compiler ABI info - done
+2025-10-18T12:49:37.0701320Z -- Check for working CXX compiler: /usr/bin/c++ - skipped
+2025-10-18T12:49:37.0820350Z -- Detecting CXX compile features
+2025-10-18T12:49:37.0921570Z -- Detecting CXX compile features - done
+2025-10-18T12:49:37.0922020Z -- Including mod loader icon in bundle: fabric_dark.png
+2025-10-18T12:49:37.1023030Z -- Including mod loader icon in bundle: fabric_light.png
+2025-10-18T12:49:37.1124800Z -- Including mod loader icon in bundle: forge_dark.png
+2025-10-18T12:49:37.1225750Z -- Including mod loader icon in bundle: forge_light.png
+2025-10-18T12:49:37.1327060Z -- Including mod loader icon in bundle: neoforge_dark.png
+2025-10-18T12:49:37.1435760Z -- Including mod loader icon in bundle: neoforge_light.png
+2025-10-18T12:49:37.1536940Z -- minizip folder not found, skipping minizip compilation.
+2025-10-18T12:49:37.1641120Z -- Configuring done (6.4s)
+2025-10-18T12:49:37.3453430Z -- Generating done (0.3s)
+2025-10-18T12:49:37.3554690Z gmake[1]: warning: -j3 forced in submake: resetting jobserver mode.
+2025-10-18T12:49:37.3555230Z -- Build files have been written to: /Users/runner/work/Amethyst-iOS-MyRemastered/Amethyst-iOS-MyRemastered/Natives/build
+2025-10-18T12:49:37.3656560Z gmake[1]: Entering directory '/Users/runner/work/Amethyst-iOS-MyRemastered/Amethyst-iOS-MyRemastered/Natives/build'
+2025-10-18T12:49:37.4012130Z [  1%] Building C object CMakeFiles/awt_headless.dir/awt_xawt/empty.m.o
+2025-10-18T12:49:37.4129160Z [  2%] Building C object CMakeFiles/tinygl4angle.dir/external/gl4es/string_utils.c.o
+2025-10-18T12:49:37.4254750Z [  2%] Building C object CMakeFiles/AFNetworking.dir/external/AFNetworking/AFNetworking/AFSecurityPolicy.m.o
+2025-10-18T12:49:37.4669400Z [  3%] Linking C shared library libawt_headless.dylib
+2025-10-18T12:49:37.5670960Z [  4%] Building C object CMakeFiles/tinygl4angle.dir/external/gl4es/tinygl4angle.c.o
+2025-10-18T12:49:38.1698700Z /Users/runner/work/Amethyst-iOS-MyRemastered/Amethyst-iOS-MyRemastered/Natives/external/AFNetworking/AFNetworking/AFSecurityPolicy.m:68:46: warning: 'SecTrustCopyPublicKey' is deprecated: first deprecated in iOS 14.0 [-Wdeprecated-declarations]
+2025-10-18T12:49:38.1803220Z     allowedPublicKey = (__bridge_transfer id)SecTrustCopyPublicKey(allowedTrust);
+2025-10-18T12:49:38.1904330Z                                              ^~~~~~~~~~~~~~~~~~~~~
+2025-10-18T12:49:38.2005320Z                                              SecTrustCopyKey
+2025-10-18T12:49:38.2005910Z [  4%] Built target awt_headless
+2025-10-18T12:49:38.2109050Z /Applications/Xcode_15.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.5.sdk/System/Library/Frameworks/Security.framework/Headers/SecTrust.h:476:11: note: 'SecTrustCopyPublicKey' has been explicitly marked deprecated here
+2025-10-18T12:49:38.2210770Z SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
+2025-10-18T12:49:38.2311810Z           ^
+2025-10-18T12:49:38.2312330Z [  5%] Building C object CMakeFiles/AmethystAccountJNI.dir/authenticator/MinecraftAccountJNI.m.o
+2025-10-18T12:49:38.2414870Z /Users/runner/work/Amethyst-iOS-MyRemastered/Amethyst-iOS-MyRemastered/Natives/external/AFNetworking/AFNetworking/AFSecurityPolicy.m:129:53: warning: 'SecTrustCopyPublicKey' is deprecated: first deprecated in iOS 14.0 [-Wdeprecated-declarations]
+2025-10-18T12:49:38.2516610Z         [trustChain addObject:(__bridge_transfer id)SecTrustCopyPublicKey(trust)];
+2025-10-18T12:49:38.2623170Z                                                     ^~~~~~~~~~~~~~~~~~~~~
+2025-10-18T12:49:38.2724240Z                                                     SecTrustCopyKey
+2025-10-18T12:49:38.2825880Z /Applications/Xcode_15.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.5.sdk/System/Library/Frameworks/Security.framework/Headers/SecTrust.h:476:11: note: 'SecTrustCopyPublicKey' has been explicitly marked deprecated here
+2025-10-18T12:49:38.2927770Z SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
+2025-10-18T12:49:38.3028780Z           ^
+2025-10-18T12:49:38.4284800Z Note: src/launcher/net/kdt/pojavlaunch/PojavClassLoader.java uses or overrides a deprecated API.
+2025-10-18T12:49:38.4408140Z Note: Recompile with -Xlint:deprecation for details.
+2025-10-18T12:49:38.5049400Z 2 warnings generated.
+2025-10-18T12:49:38.5234450Z [  6%] Building C object CMakeFiles/AFNetworking.dir/external/AFNetworking/AFNetworking/AFHTTPSessionManager.m.o
+2025-10-18T12:49:38.6149930Z Compiling src/launcher/net/kdt/pojavlaunch/uikit/UIKit.java
+2025-10-18T12:49:38.8797050Z [  7%] Linking C shared library libtinygl4angle.dylib
+2025-10-18T12:49:38.9199280Z /Users/runner/work/Amethyst-iOS-MyRemastered/Amethyst-iOS-MyRemastered/Natives/authenticator/MinecraftAccountJNI.m:13:75: error: no known class method for selector 'tokenDataOfProfile:'
+2025-10-18T12:49:38.9301040Z     NSString *accessToken = [NSClassFromString(@"MicrosoftAuthenticator") tokenDataOfProfile:@(xuidC)][@"accessToken"];
+2025-10-18T12:49:38.9301890Z [  8%] Building C object CMakeFiles/AFNetworking.dir/external/AFNetworking/AFNetworking/AFURLRequestSerialization.m.o
+2025-10-18T12:49:38.9403360Z                                                                           ^~~~~~~~~~~~~~~~~~
+2025-10-18T12:49:38.9504320Z 1 error generated.
+2025-10-18T12:49:38.9606800Z gmake[3]: *** [CMakeFiles/AmethystAccountJNI.dir/build.make:79: CMakeFiles/AmethystAccountJNI.dir/authenticator/MinecraftAccountJNI.m.o] Error 1
+2025-10-18T12:49:38.9710490Z gmake[2]: *** [CMakeFiles/Makefile2:230: CMakeFiles/AmethystAccountJNI.dir/all] Error 2
+2025-10-18T12:49:38.9811540Z gmake[2]: *** Waiting for unfinished jobs....
+2025-10-18T12:49:39.1345450Z [  8%] Built target tinygl4angle
+2025-10-18T12:49:39.1447580Z [  9%] Building C object CMakeFiles/AFNetworking.dir/external/AFNetworking/AFNetworking/AFURLSessionManager.m.o
+2025-10-18T12:49:40.4742960Z [ 10%] Building C object CMakeFiles/AFNetworking.dir/external/AFNetworking/AFNetworking/AFNetworkReachabilityManager.m.o
+2025-10-18T12:49:41.2682400Z [ 11%] Building C object CMakeFiles/AFNetworking.dir/external/AFNetworking/AFNetworking/AFURLResponseSerialization.m.o
+2025-10-18T12:49:41.9956040Z [ 12%] Building C object CMakeFiles/AFNetworking.dir/external/AFNetworking/UIKit+AFNetworking/AFNetworkActivityIndicatorManager.m.o
+2025-10-18T12:49:42.0079700Z [ 13%] Building C object CMakeFiles/AFNetworking.dir/external/AFNetworking/UIKit+AFNetworking/AFAutoPurgingImageCache.m.o
+2025-10-18T12:49:42.2549740Z Compiling src/launcher/net/kdt/pojavlaunch/value/launcherprofiles/MinecraftSelectedUser.java
+2025-10-18T12:49:42.7620900Z [ 14%] Building C object CMakeFiles/AFNetworking.dir/external/AFNetworking/UIKit+AFNetworking/AFImageDownloader.m.o
+2025-10-18T12:49:43.4739500Z [ 15%] Building C object CMakeFiles/AFNetworking.dir/external/AFNetworking/UIKit+AFNetworking/UIButton+AFNetworking.m.o
+2025-10-18T12:49:43.8054850Z /Users/runner/work/Amethyst-iOS-MyRemastered/Amethyst-iOS-MyRemastered/Natives/external/AFNetworking/UIKit+AFNetworking/AFNetworkActivityIndicatorManager.m:118:48: warning: 'setNetworkActivityIndicatorVisible:' is deprecated: first deprecated in iOS 13.0 - Provide a custom network activity UI in your app if desired. [-Wdeprecated-declarations]
+2025-10-18T12:49:43.8155650Z             [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:networkActivityIndicatorVisible];
+2025-10-18T12:49:43.8255910Z                                                ^
+2025-10-18T12:49:43.8357590Z /Applications/Xcode_15.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.5.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIApplication.h:113:68: note: property 'networkActivityIndicatorVisible' is declared deprecated here
+2025-10-18T12:49:43.8457840Z @property(nonatomic,getter=isNetworkActivityIndicatorVisible) BOOL networkActivityIndicatorVisible API_UNAVAILABLE(tvos) API_DEPRECATED("Provide a custom network activity UI in your app if desired.", ios(2.0, 13.0)) API_UNAVAILABLE(visionos);
+2025-10-18T12:49:43.8557730Z                                                                    ^
+2025-10-18T12:49:43.8659340Z /Applications/Xcode_15.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.5.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIApplication.h:113:68: note: 'setNetworkActivityIndicatorVisible:' has been explicitly marked deprecated here
+2025-10-18T12:49:43.8882960Z 1 warning generated.
+2025-10-18T12:49:43.9088770Z [ 16%] Building C object CMakeFiles/AFNetworking.dir/external/AFNetworking/UIKit+AFNetworking/UIImageView+AFNetworking.m.o
+2025-10-18T12:49:45.2173620Z [ 17%] Linking C shared library libAFNetworking.dylib
+2025-10-18T12:49:45.3787050Z gmake[1]: *** [Makefile:91: all] Error 2
+2025-10-18T12:49:45.3787390Z [ 17%] Built target AFNetworking
+2025-10-18T12:49:45.3888420Z gmake: *** [Makefile:257: native] Error 2
+2025-10-18T12:49:45.3889230Z gmake[1]: Leaving directory '/Users/runner/work/Amethyst-iOS-MyRemastered/Amethyst-iOS-MyRemastered/Natives/build'
+2025-10-18T12:49:45.3990550Z gmake: *** Waiting for unfinished jobs....
+2025-10-18T12:49:45.9102490Z Compiling src/launcher/net/kdt/pojavlaunch/value/launcherprofiles/MinecraftResolution.java
+2025-10-18T12:49:47.5503980Z Compiling src/launcher/net/kdt/pojavlaunch/value/launcherprofiles/MinecraftProfile.java
+2025-10-18T12:49:50.9488770Z Note: src/launcher/net/kdt/pojavlaunch/PojavClassLoader.java uses or overrides a deprecated API.
+2025-10-18T12:49:50.9588000Z Note: Recompile with -Xlint:deprecation for details.
+2025-10-18T12:49:50.9688770Z Note: Some input files use unchecked or unsafe operations.
+2025-10-18T12:49:50.9789700Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:49:51.0542460Z Compiling src/launcher/net/kdt/pojavlaunch/value/launcherprofiles/MinecraftLauncherProfiles.java
+2025-10-18T12:49:51.2398120Z Compiling src/launcher/net/kdt/pojavlaunch/value/launcherprofiles/LauncherProfiles.java
+2025-10-18T12:49:51.7023730Z <?xml version="1.0" encoding="UTF-8"?>
+2025-10-18T12:49:51.7125480Z <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+2025-10-18T12:49:51.7225820Z <plist version="1.0">
+2025-10-18T12:49:51.7326860Z <dict>
+2025-10-18T12:49:51.7427730Z 	<key>com.apple.actool.compilation-results</key>
+2025-10-18T12:49:51.7528660Z 	<dict>
+2025-10-18T12:49:51.7629710Z 		<key>output-files</key>
+2025-10-18T12:49:51.7730550Z 		<array>
+2025-10-18T12:49:51.7831630Z 			<string>/Users/runner/work/Amethyst-iOS-MyRemastered/Amethyst-iOS-MyRemastered/Natives/resources/AppIcon-Light60x60@2x.png</string>
+2025-10-18T12:49:51.7933170Z 			<string>/Users/runner/work/Amethyst-iOS-MyRemastered/Amethyst-iOS-MyRemastered/Natives/resources/AppIcon-Light76x76@2x~ipad.png</string>
+2025-10-18T12:49:51.8034620Z 			<string>/Users/runner/work/Amethyst-iOS-MyRemastered/Amethyst-iOS-MyRemastered/Natives/resources/Assets.car</string>
+2025-10-18T12:49:51.8136140Z 			<string>/dev/null</string>
+2025-10-18T12:49:51.8237000Z 		</array>
+2025-10-18T12:49:51.8337920Z 	</dict>
+2025-10-18T12:49:51.8438870Z </dict>
+2025-10-18T12:49:51.8539970Z </plist>
+2025-10-18T12:49:51.8640720Z [Amethyst v1.0] assets - end
+2025-10-18T12:49:55.3428950Z Note: src/launcher/net/kdt/pojavlaunch/PojavClassLoader.java uses or overrides a deprecated API.
+2025-10-18T12:49:55.3530240Z Note: Recompile with -Xlint:deprecation for details.
+2025-10-18T12:49:55.3631610Z Note: Some input files use unchecked or unsafe operations.
+2025-10-18T12:49:55.3732590Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:49:55.4434720Z Compiling src/launcher/net/kdt/pojavlaunch/value/launcherprofiles/MinecraftAuthenticationDatabase.java
+2025-10-18T12:49:56.9812130Z Compiling src/launcher/net/kdt/pojavlaunch/value/launcherprofiles/MinecraftLauncherSettings.java
+2025-10-18T12:49:58.5952590Z Compiling src/launcher/net/kdt/pojavlaunch/value/MinecraftLibraryArtifact.java
+2025-10-18T12:50:00.4945450Z Compiling src/launcher/net/kdt/pojavlaunch/value/MinecraftClientInfo.java
+2025-10-18T12:50:01.3774000Z Note: src/launcher/net/kdt/pojavlaunch/PojavClassLoader.java uses or overrides a deprecated API.
+2025-10-18T12:50:01.3874650Z Note: Recompile with -Xlint:deprecation for details.
+2025-10-18T12:50:01.3975280Z Note: Some input files use unchecked or unsafe operations.
+2025-10-18T12:50:01.4076110Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:50:01.4176210Z Compiling src/launcher/net/kdt/pojavlaunch/value/DependentLibrary.java
+2025-10-18T12:50:01.4693310Z Note: src/launcher/net/kdt/pojavlaunch/PojavClassLoader.java uses or overrides a deprecated API.
+2025-10-18T12:50:01.4794850Z Note: Recompile with -Xlint:deprecation for details.
+2025-10-18T12:50:01.4895970Z Note: Some input files use unchecked or unsafe operations.
+2025-10-18T12:50:01.4896470Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:50:01.5097200Z Compiling src/launcher/net/kdt/pojavlaunch/value/MinecraftAccount.java
+2025-10-18T12:50:02.2654670Z Compiling src/launcher/net/kdt/pojavlaunch/value/ForgeInstallProfile.java
+2025-10-18T12:50:03.1340970Z Compiling src/launcher/net/kdt/pojavlaunch/utils/MCOptionUtils.java
+2025-10-18T12:50:04.3386940Z Compiling src/launcher/net/kdt/pojavlaunch/utils/JSONUtils.java
+2025-10-18T12:50:06.5484960Z Compiling src/launcher/net/kdt/pojavlaunch/JVersion.java
+2025-10-18T12:50:09.4018660Z Compiling src/launcher/net/kdt/pojavlaunch/JAssets.java
+2025-10-18T12:50:12.0174410Z Note: src/launcher/net/kdt/pojavlaunch/PojavClassLoader.java uses or overrides a deprecated API.
+2025-10-18T12:50:12.0275790Z Note: Recompile with -Xlint:deprecation for details.
+2025-10-18T12:50:12.0376180Z Note: Some input files use unchecked or unsafe operations.
+2025-10-18T12:50:12.0477470Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:50:12.0879070Z Compiling src/launcher/net/kdt/pojavlaunch/JAssetInfo.java
+2025-10-18T12:50:12.1191530Z Compiling src/launcher/net/kdt/pojavlaunch/Tools.java
+2025-10-18T12:50:13.1137610Z Note: src/launcher/net/kdt/pojavlaunch/PojavClassLoader.java uses or overrides a deprecated API.
+2025-10-18T12:50:13.1238880Z Note: Recompile with -Xlint:deprecation for details.
+2025-10-18T12:50:13.1347790Z Note: Some input files use unchecked or unsafe operations.
+2025-10-18T12:50:13.1449020Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:50:13.2252190Z Compiling src/launcher/net/kdt/pojavlaunch/JMinecraftVersionList.java
+2025-10-18T12:50:13.7612640Z Compiling src/launcher/android/util/Objects.java
+2025-10-18T12:50:15.2930220Z Compiling src/launcher/android/util/ArrayMap.java
+2025-10-18T12:50:16.0063930Z Compiling src/launcher/android/util/EmptyArray.java
+2025-10-18T12:50:17.7541870Z Compiling src/launcher/android/util/ContainerHelpers.java
+2025-10-18T12:50:19.4650740Z Compiling src/launcher/android/util/MapCollections.java
+2025-10-18T12:50:20.3563800Z Note: Some input files use unchecked or unsafe operations.
+2025-10-18T12:50:20.3664300Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:50:20.3966420Z Compiling src/launcher/com/mojang/text2speech/NarratorWindows.java
+2025-10-18T12:50:20.5872210Z Note: src/launcher/net/kdt/pojavlaunch/PojavClassLoader.java uses or overrides a deprecated API.
+2025-10-18T12:50:20.5973170Z Note: Recompile with -Xlint:deprecation for details.
+2025-10-18T12:50:20.6075840Z Note: Some input files use unchecked or unsafe operations.
+2025-10-18T12:50:20.6178030Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:50:20.6797520Z Compiling src/launcher/com/mojang/text2speech/Narrator.java
+2025-10-18T12:50:22.1235040Z Compiling src/launcher/com/mojang/text2speech/NarratorOSX.java
+2025-10-18T12:50:23.2902890Z Note: src/launcher/android/util/MapCollections.java uses unchecked or unsafe operations.
+2025-10-18T12:50:23.3008840Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:50:23.3009280Z Compiling src/launcher/com/mojang/text2speech/NarratorLinux.java
+2025-10-18T12:50:23.3429790Z Compiling src/launcher/com/mojang/text2speech/Text2Speech.java
+2025-10-18T12:50:24.4827080Z Compiling src/lwjgl/org/lwjgl/input/InfdevMouse.java
+2025-10-18T12:50:25.6271470Z Compiling src/lwjgl/org/lwjgl/glfw/CallbackBridge.java
+2025-10-18T12:50:25.8588290Z Compiling src/lwjgl/org/lwjgl/glfw/GLFWNativeCocoa.java
+2025-10-18T12:50:26.8989100Z Compiling src/lwjgl/org/lwjgl/glfw/Callbacks.java
+2025-10-18T12:50:28.1350600Z Compiling src/lwjgl/org/lwjgl/glfw/GLFWVulkan.java
+2025-10-18T12:50:28.3974990Z Compiling src/lwjgl/org/lwjgl/glfw/GLFWNativeEGL.java
+2025-10-18T12:50:30.2771240Z Compiling src/lwjgl/org/lwjgl/glfw/GLFWWindowProperties.java
+2025-10-18T12:50:36.1955320Z Note: src/launcher/net/kdt/pojavlaunch/PojavClassLoader.java uses or overrides a deprecated API.
+2025-10-18T12:50:36.2073890Z Note: Recompile with -Xlint:deprecation for details.
+2025-10-18T12:50:36.2175130Z Note: Some input files use unchecked or unsafe operations.
+2025-10-18T12:50:36.2276530Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:50:36.2578770Z Compiling src/lwjgl/org/lwjgl/glfw/GLFW.java
+2025-10-18T12:50:36.7886810Z Note: src/launcher/net/kdt/pojavlaunch/PojavClassLoader.java uses or overrides a deprecated API.
+2025-10-18T12:50:36.7988150Z Note: Recompile with -Xlint:deprecation for details.
+2025-10-18T12:50:36.8089480Z Note: Some input files use unchecked or unsafe operations.
+2025-10-18T12:50:36.8190640Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:50:36.9491750Z Compiling src/patchjna_agent/net/kdt/patchjna/PatchJNAAgent.java
+2025-10-18T12:50:39.1348660Z Compiling src/patchjna_agent/com/sun/jna/Platform.java
+2025-10-18T12:50:39.5770580Z Note: src/launcher/net/kdt/pojavlaunch/PojavClassLoader.java uses or overrides a deprecated API.
+2025-10-18T12:50:39.5870790Z Note: Recompile with -Xlint:deprecation for details.
+2025-10-18T12:50:39.5972120Z Note: Some input files use unchecked or unsafe operations.
+2025-10-18T12:50:39.6072440Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:50:41.4913600Z Note: src/patchjna_agent/com/sun/jna/Platform.java uses unchecked or unsafe operations.
+2025-10-18T12:50:41.5014750Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:50:44.1845230Z Note: src/launcher/net/kdt/pojavlaunch/PojavClassLoader.java uses or overrides a deprecated API.
+2025-10-18T12:50:44.1946970Z Note: Recompile with -Xlint:deprecation for details.
+2025-10-18T12:50:44.2048210Z Note: Some input files use unchecked or unsafe operations.
+2025-10-18T12:50:44.2151190Z Note: Recompile with -Xlint:unchecked for details.
+2025-10-18T12:50:44.2252480Z Creating build/launcher.jar
+2025-10-18T12:50:44.2353720Z Creating build/lwjgl.jar
+2025-10-18T12:50:44.2554840Z Creating build/patchjna_agent.jar
+2025-10-18T12:50:50.9392550Z gmake[1]: Leaving directory '/Users/runner/work/Amethyst-iOS-MyRemastered/Amethyst-iOS-MyRemastered/JavaApp'
+2025-10-18T12:50:50.9496640Z [Amethyst v1.0] java - end
+2025-10-18T12:50:50.9587460Z ##[error]Process completed with exit code 2.
