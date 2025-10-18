@@ -250,7 +250,8 @@
         }
     };
     vc.whenItemSelected = ^void() {
-        setPrefObject(@"internal.selected_account", BaseAuthenticator.current.authData[@"username"]);
+        BaseAuthenticator *currentAuth = BaseAuthenticator.current;
+        setPrefObject(@"internal.selected_account", currentAuth.authData[@"username"]);
         [self updateAccountInfo];
         if (sender != self.accountButton) {
             // Called from the play button, so call back to continue
@@ -269,7 +270,8 @@
 }
 
 - (void)updateAccountInfo {
-    NSDictionary *selected = BaseAuthenticator.current.authData;
+    BaseAuthenticator *currentAuth = BaseAuthenticator.current;
+    NSDictionary *selected = currentAuth.authData;
     CGSize size = CGSizeMake(contentNavigationController.view.frame.size.width, contentNavigationController.view.frame.size.height);
     
     if (selected == nil) {
