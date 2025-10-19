@@ -124,11 +124,45 @@ static NSError* createError(NSString *message, NSInteger code) {
     [self sendAuthenticateRequest:data manager:manager callback:callback];
 }
 
+// Helper method to build authentication URL based on server
+- (NSString *)buildAuthURLForServer:(NSString *)serverURL {
+    // For Ely.by, use the old method
+    if ([serverURL isEqualToString:@"https://authserver.ely.by"] || 
+        [serverURL isEqualToString:@"https://authserver.ely.by/"]) {
+        return [NSString stringWithFormat:@"%@auth/authenticate", serverURL];
+    }
+    // For other servers, use the standard Yggdrasil API method
+    else {
+        // Ensure serverURL ends with a slash
+        if (![serverURL hasSuffix:@"/"]) {
+            serverURL = [serverURL stringByAppendingString:@"/"];
+        }
+        return [NSString stringWithFormat:@"%@authserver/authenticate", serverURL];
+    }
+}
+
+// Helper method to build refresh URL based on server
+- (NSString *)buildRefreshURLForServer:(NSString *)serverURL {
+    // For Ely.by, use the old method
+    if ([serverURL isEqualToString:@"https://authserver.ely.by"] || 
+        [serverURL isEqualToString:@"https://authserver.ely.by/"]) {
+        return [NSString stringWithFormat:@"%@auth/refresh", serverURL];
+    }
+    // For other servers, use the standard Yggdrasil API method
+    else {
+        // Ensure serverURL ends with a slash
+        if (![serverURL hasSuffix:@"/"]) {
+            serverURL = [serverURL stringByAppendingString:@"/"];
+        }
+        return [NSString stringWithFormat:@"%@authserver/refresh", serverURL];
+    }
+}
+
 // Helper method to send authentication request
 - (void)sendAuthenticateRequest:(NSDictionary *)data manager:(AFHTTPSessionManager *)manager callback:(Callback)callback {
     // Get server URL from authData or use default Ely.by server
     NSString *serverURL = self.authData[@"authserver"] ?: @"https://authserver.ely.by";
-    NSString *authURL = [NSString stringWithFormat:@"%@/auth/authenticate", serverURL];
+    NSString *authURL = [self buildAuthURLForServer:serverURL];
     
     NSLog(@"[ThirdPartyAuthenticator] Sending authentication request to %@", authURL);
     
@@ -358,7 +392,8 @@ static NSError* createError(NSString *message, NSInteger code) {
         AFHTTPSessionManager *manager = AFHTTPSessionManager.manager;
         manager.requestSerializer = AFJSONRequestSerializer.serializer;
         
-        NSString *refreshURL = [NSString stringWithFormat:@"%@/auth/refresh", self.authData[@"authserver"] ?: @"https://authserver.ely.by"];
+        NSString *serverURL = self.authData[@"authserver"] ?: @"https://authserver.ely.by";
+        NSString *refreshURL = [self buildRefreshURLForServer:serverURL];
         
         [manager POST:refreshURL parameters:data headers:nil progress:nil success:^(NSURLSessionDataTask *task, NSDictionary *response) {
             @try {
