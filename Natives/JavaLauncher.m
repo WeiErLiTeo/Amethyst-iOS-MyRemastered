@@ -15,6 +15,8 @@
 #import "JavaLauncher.h"
 #import "LauncherPreferences.h"
 #import "PLProfiles.h"
+#import "authenticator/BaseAuthenticator.h"
+#import "authenticator/ThirdPartyAuthenticator.h"
 
 #define fm NSFileManager.defaultManager
 
