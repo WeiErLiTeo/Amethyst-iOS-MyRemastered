@@ -294,6 +294,13 @@ NSString *const kMarqueeLabelAnimationCompletionBlock = @"MarqueeLabelAnimationC
     CGSize constrainedSize = CGSizeMake(CGFLOAT_MAX, self.bounds.size.height);
     CGSize labelSize;
 
+    // Add nil checks for font and text to prevent crash
+    UIFont *font = self.font ? self.font : [UIFont systemFontOfSize:17.0f];
+    NSString *text = self.text ? self.text : @"";
+    if (text.length == 0) {
+        return CGSizeZero;
+    }
+
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 70000
     if (self.attributedText) {
         CGRect textRect = [self.attributedText boundingRectWithSize:constrainedSize
@@ -301,20 +308,20 @@ NSString *const kMarqueeLabelAnimationCompletionBlock = @"MarqueeLabelAnimationC
                                                              context:nil];
         labelSize = textRect.size;
     } else {
-        CGRect textRect = [self.text boundingRectWithSize:constrainedSize
+        CGRect textRect = [text boundingRectWithSize:constrainedSize
                                                    options:NSStringDrawingUsesLineFragmentOrigin
-                                                attributes:@{NSFontAttributeName:self.font}
+                                                attributes:@{NSFontAttributeName:font}
                                                    context:nil];
         labelSize = textRect.size;
     }
 #else
     if (self.attributedText) {
         // Size of attributed text is not supported on iOS < 7
-        labelSize = [self.text sizeWithFont:self.font
+        labelSize = [text sizeWithFont:font
                            constrainedToSize:constrainedSize
                                lineBreakMode:self.lineBreakMode];
     } else {
-        labelSize = [self.text sizeWithFont:self.font
+        labelSize = [text sizeWithFont:font
                            constrainedToSize:constrainedSize
                                lineBreakMode:self.lineBreakMode];
     }
