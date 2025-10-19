@@ -1,5 +1,6 @@
 #import "ModSettingsViewController.h"
 #import "LauncherPreferences.h"
+#import "utils.h"
 
 @implementation ModSettingsViewController
 

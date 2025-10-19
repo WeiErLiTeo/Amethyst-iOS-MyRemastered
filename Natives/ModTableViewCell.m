@@ -25,7 +25,9 @@
         _modIconView = [self createImageViewWithCornerRadius:4];
 
         // Name Label (Marquee)
-        _nameLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero rate:60.0 andFadeLength:10.0];
+        _nameLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
+        _nameLabel.rate = 60.0;
+        _nameLabel.fadeLength = 10.0;
         _nameLabel.marqueeType = MLRightLeft;
         _nameLabel.animationDelay = 2.0;
         _nameLabel.font = [UIFont boldSystemFontOfSize:15];
@@ -35,7 +37,9 @@
         _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:11] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
 
         // Description Label (Marquee)
-        _descLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero rate:50.0 andFadeLength:10.0];
+        _descLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
+        _descLabel.rate = 50.0;
+        _descLabel.fadeLength = 10.0;
         _descLabel.marqueeType = MLRightLeft;
         _descLabel.animationDelay = 2.0;
         _descLabel.numberOfLines = 2; // Still allow up to 2 lines, marquee will apply if needed on a single long line

@@ -730,7 +730,7 @@ NSString *const kMarqueeLabelAnimationCompletionBlock = @"MarqueeLabelAnimationC
     UIViewController *controller = [userInfo objectForKey:@"controller"];
 
     if (controller) {
-        BOOL isRelevant = [(UIView *)self.nextResponder isDescendantOfView:controller.view];
+        BOOL isRelevant = [self isDescendantOfView:controller.view];
         if (isRelevant) {
             if ([notification.name isEqualToString:kMarqueeLabelControllerViewAppearing]) {
                 self.awayFromHome = NO;
@@ -746,7 +746,7 @@ NSString *const kMarqueeLabelAnimationCompletionBlock = @"MarqueeLabelAnimationC
     UIViewController *controller = [userInfo objectForKey:@"controller"];
     if (controller != nil) {
         // To be safe, check if self is a subview of the controller's view
-        BOOL isSubview = [(UIView *)self.nextResponder isDescendantOfView:controller.view];
+        BOOL isSubview = [self isDescendantOfView:controller.view];
         if (isSubview) {
             self.labelize = YES;
         }

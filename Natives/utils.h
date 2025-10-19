@@ -73,6 +73,7 @@ NSString* localize(NSString* key, NSString* comment);
 NSMutableDictionary* parseJSONFromFile(NSString *path);
 NSError* saveJSONToFile(NSDictionary *dict, NSString *path);
 void customNSLog(const char *file, int lineNumber, const char *functionName, NSString *format, ...);
+extern id getPrefObject(NSString* key);
 
 static inline CGFloat clamp(CGFloat x, CGFloat lower, CGFloat upper) {
     return fmin(upper, fmax(x, lower));
