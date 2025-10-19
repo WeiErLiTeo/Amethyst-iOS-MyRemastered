@@ -5,5 +5,6 @@
 
 - (void)loginWithCallback:(Callback)callback;
 - (void)refreshTokenWithCallback:(Callback)callback;
+- (NSArray *)getJvmArgsForAuthlib;
 
 @end
