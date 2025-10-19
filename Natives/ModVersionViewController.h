@@ -10,8 +10,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)modVersionViewController:(ModVersionViewController *)viewController didSelectVersion:(ModVersion *)version;
 @end
 
+#import <UIKit/UIKit.h>
+
 @interface ModVersionViewController : UIViewController
 
+@property (nonatomic, strong) UIActivityIndicatorView *activityIndicator;
 @property (nonatomic, strong) ModItem *modItem;
 @property (nonatomic, weak) id<ModVersionViewControllerDelegate> delegate;
 

@@ -2,7 +2,6 @@
 #import "installer/modpack/ModrinthAPI.h"
 #import "ModVersion.h"
 #import "ModVersionTableViewCell.h"
-#import "MBProgressHUD.h"
 
 @interface ModVersionViewController () <UITableViewDataSource, UITableViewDelegate, UIPickerViewDataSource, UIPickerViewDelegate>
 
@@ -30,6 +29,7 @@
 
     [self setupFilterControls];
     [self setupTableView];
+    [self setupActivityIndicator];
 
     [self fetchVersions];
 }
@@ -76,11 +76,23 @@
     ]];
 }
 
+- (void)setupActivityIndicator {
+    self.activityIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
+    self.activityIndicator.translatesAutoresizingMaskIntoConstraints = NO;
+    self.activityIndicator.hidesWhenStopped = YES;
+    [self.view addSubview:self.activityIndicator];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [self.activityIndicator.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [self.activityIndicator.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
+    ]];
+}
+
 - (void)fetchVersions {
-    [MBProgressHUD showHUDAddedTo:self.view animated:YES];
+    [self.activityIndicator startAnimating];
     [[ModrinthAPI sharedInstance] getVersionsForModWithID:self.modItem.onlineID completion:^(NSArray<ModVersion *> * _Nullable versions, NSError * _Nullable error) {
         dispatch_async(dispatch_get_main_queue(), ^{
-            [MBProgressHUD hideHUDForView:self.view animated:YES];
+            [self.activityIndicator stopAnimating];
             if (error) {
                 NSLog(@"Error fetching versions: %@", error);
                 // Handle error
