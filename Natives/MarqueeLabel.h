@@ -92,7 +92,7 @@ typedef NS_ENUM(NSInteger, MarqueeType) {
 
 /// A boolean value that determines if the label should be faded at the edges.
 /// @note Defaults to `NO`.
-@property (nonatomic, assign) IBInspectable BOOL fade촌;
+@property (nonatomic, assign) IBInspectable BOOL fadeLength;
 
 /// Used to indicate that the `MarqueeLabel` should not scroll when the view controller containing it is not visible.
 /// The label will automatically pause and resume, but this property can be used to retrieve the current status.

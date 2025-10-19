@@ -35,9 +35,9 @@ NSString *const kMarqueeLabelAnimationCompletionBlock = @"MarqueeLabelAnimationC
 @property (nonatomic, assign, readwrite) BOOL awayFromHome;
 
 @property (nonatomic, strong) NSArray *gradientColors;
+@property (nonatomic, assign) BOOL tapToScroll;
 
 - (void)scrollLeftWithInterval:(NSTimeInterval)interval;
-- (void)scrollRightWithInterval:(NSTimeInterval)interval;
 - (void)returnLabelToOrigin;
 
 - (void)setup;
@@ -102,7 +102,7 @@ NSString *const kMarqueeLabelAnimationCompletionBlock = @"MarqueeLabelAnimationC
     if (self) {
         [self setup];
         self.scrollDuration = duration;
-        self.fade촌 = (fadeLength > 0.0);
+        self.fadeLength = (fadeLength > 0.0);
     }
     return self;
 }
@@ -112,7 +112,7 @@ NSString *const kMarqueeLabelAnimationCompletionBlock = @"MarqueeLabelAnimationC
     if (self) {
         [self setup];
         self.rate = rate;
-        self.fade촌 = (fadeLength > 0.0);
+        self.fadeLength = (fadeLength > 0.0);
     }
     return self;
 }
@@ -181,7 +181,7 @@ NSString *const kMarqueeLabelAnimationCompletionBlock = @"MarqueeLabelAnimationC
     self.trailingBuffer = 20.0f;
     self.animationDelay = 1.0f;
     self.animationDelayAfterAppear = 1.0f;
-    self.fade촌 = 0.0f;
+    self.fadeLength = 0.0f;
     self.labelize = NO;
     self.holdScrolling = NO;
     self.isScrolling = NO;
@@ -280,7 +280,7 @@ NSString *const kMarqueeLabelAnimationCompletionBlock = @"MarqueeLabelAnimationC
     // Recalculate animation duration
     self.animationDuration = (self.scrollDuration > 0.0f ? self.scrollDuration : (NSTimeInterval)self.subLabel.bounds.size.width/self.rate);
 
-    [self applyGradientMaskForFadeLength:(self.fade촌 ? 10.0 : 0.0) animated:YES];
+    [self applyGradientMaskForFadeLength:(self.fadeLength ? 10.0 : 0.0) animated:YES];
 
     // Animate
     if (!self.labelize && !self.holdScrolling && !self.tapToScroll) {
@@ -730,7 +730,7 @@ NSString *const kMarqueeLabelAnimationCompletionBlock = @"MarqueeLabelAnimationC
     UIViewController *controller = [userInfo objectForKey:@"controller"];
 
     if (controller) {
-        BOOL isRelevant = [self.nextResponder isDescendantOfView:controller.view];
+        BOOL isRelevant = [(UIView *)self.nextResponder isDescendantOfView:controller.view];
         if (isRelevant) {
             if ([notification.name isEqualToString:kMarqueeLabelControllerViewAppearing]) {
                 self.awayFromHome = NO;
@@ -746,7 +746,7 @@ NSString *const kMarqueeLabelAnimationCompletionBlock = @"MarqueeLabelAnimationC
     UIViewController *controller = [userInfo objectForKey:@"controller"];
     if (controller != nil) {
         // To be safe, check if self is a subview of the controller's view
-        BOOL isSubview = [self.nextResponder isDescendantOfView:controller.view];
+        BOOL isSubview = [(UIView *)self.nextResponder isDescendantOfView:controller.view];
         if (isSubview) {
             self.labelize = YES;
         }
