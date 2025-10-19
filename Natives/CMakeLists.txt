@@ -177,6 +177,7 @@ add_executable(AngelAuraAmethyst
   input_bridge_v3.m
   ios_uikit_bridge.m
   utils.m
+  MarqueeLabel.m
 
   # Mod-related sources (ensure implementations are compiled and linked)
   ModItem.m
@@ -184,6 +185,7 @@ add_executable(AngelAuraAmethyst
   ModTableViewCell.m
   ModTableViewController.m
   ModsManagerViewController.m
+  ModSettingsViewController.m
   ModVersion.m
   ModVersionViewController.m
   ModVersionTableViewCell.m

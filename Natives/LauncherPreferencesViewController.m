@@ -182,6 +182,12 @@
         @[
             // General settings
             @{@"icon": @"cube"},
+            @{@"key": @"mod_settings",
+              @"hasDetail": @YES,
+              @"icon": @"wrench.and.screwdriver",
+              @"type": self.typeChildPane,
+              @"class": @"ModSettingsViewController"
+            },
             @{@"key": @"check_sha",
               @"hasDetail": @YES,
               @"icon": @"lock.shield",

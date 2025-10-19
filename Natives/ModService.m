@@ -244,6 +244,9 @@
                 mod.onlineID = json[@"id"];
                 mod.version = json[@"version"];
                 mod.displayName = json[@"name"];
+                if ([mod.displayName hasPrefix:@"${"] && [mod.displayName hasSuffix:@"}"]) {
+                    mod.displayName = nil; // Invalid placeholder, fallback to filename
+                }
                 mod.modDescription = json[@"description"];
                 mod.author = [json[@"authors"] componentsJoinedByString:@", "];
                 // Icon parsing (optional)
@@ -270,6 +273,9 @@
                     mod.onlineID = modInfo[@"modId"];
                     mod.version = modInfo[@"version"];
                     mod.displayName = modInfo[@"displayName"];
+                    if ([mod.displayName hasPrefix:@"${"] && [mod.displayName hasSuffix:@"}"]) {
+                        mod.displayName = nil; // Invalid placeholder, fallback to filename
+                    }
                     mod.modDescription = modInfo[@"description"];
                     mod.author = modInfo[@"authors"];
                     // Forge icon parsing is more complex, often a logo file defined in the TOML

@@ -1,6 +1,7 @@
 #import "ModTableViewCell.h"
 #import "ModItem.h"
 #import "ModService.h"
+#import "MarqueeLabel.h"
 #import <QuartzCore/QuartzCore.h>
 
 #pragma clang diagnostic push
@@ -21,21 +22,40 @@
         self.contentView.backgroundColor = [UIColor systemBackgroundColor];
 
         // --- Initialization of UI Elements ---
-        _modIconView = [self createImageViewWithCornerRadius:6]; // Smaller corner radius
-        _nameLabel = [self createLabelWithFont:[UIFont boldSystemFontOfSize:16] textColor:[UIColor labelColor] numberOfLines:1];
-        _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
-        _descLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor grayColor] numberOfLines:2];
-        _statsLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
-        _categoryLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor systemBlueColor] numberOfLines:1];
+        _modIconView = [self createImageViewWithCornerRadius:4];
+
+        // Name Label (Marquee)
+        _nameLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero rate:60.0 andFadeLength:10.0];
+        _nameLabel.marqueeType = MLRightLeft;
+        _nameLabel.animationDelay = 2.0;
+        _nameLabel.font = [UIFont boldSystemFontOfSize:15];
+        _nameLabel.textColor = [UIColor labelColor];
+        _nameLabel.translatesAutoresizingMaskIntoConstraints = NO;
+
+        _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:11] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
+
+        // Description Label (Marquee)
+        _descLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero rate:50.0 andFadeLength:10.0];
+        _descLabel.marqueeType = MLRightLeft;
+        _descLabel.animationDelay = 2.0;
+        _descLabel.numberOfLines = 2; // Still allow up to 2 lines, marquee will apply if needed on a single long line
+        _descLabel.font = [UIFont systemFontOfSize:11];
+        _descLabel.textColor = [UIColor grayColor];
+        _descLabel.translatesAutoresizingMaskIntoConstraints = NO;
+
+        _statsLabel = [self createLabelWithFont:[UIFont systemFontOfSize:11] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
+        _categoryLabel = [self createLabelWithFont:[UIFont systemFontOfSize:11] textColor:[UIColor systemBlueColor] numberOfLines:1];
 
         _enableSwitch = [[UISwitch alloc] init];
+        _enableSwitch.transform = CGAffineTransformMakeScale(0.75, 0.75); // Scale down the switch
         _enableSwitch.translatesAutoresizingMaskIntoConstraints = NO;
         [_enableSwitch addTarget:self action:@selector(toggleTapped) forControlEvents:UIControlEventValueChanged];
 
         _downloadButton = [self createButtonWithTitle:@"下载" titleColor:[UIColor whiteColor] action:@selector(downloadTapped)];
         _downloadButton.backgroundColor = [UIColor systemBlueColor];
-        _downloadButton.layer.cornerRadius = 14;
-        _downloadButton.contentEdgeInsets = UIEdgeInsetsMake(6, 12, 6, 12);
+        _downloadButton.layer.cornerRadius = 12;
+        _downloadButton.titleLabel.font = [UIFont boldSystemFontOfSize:13];
+        _downloadButton.contentEdgeInsets = UIEdgeInsetsMake(5, 10, 5, 10);
 
         _openLinkButton = [self createButtonWithImage:[UIImage systemImageNamed:@"info.circle"] action:@selector(openLinkTapped)];
 
@@ -118,8 +138,8 @@
 #pragma mark - Auto Layout Constraints
 
 - (void)setupConstraints {
-    CGFloat padding = 12.0;
-    CGFloat iconSize = 60.0;
+    CGFloat padding = 10.0;
+    CGFloat iconSize = 50.0;
 
     // --- Common Constraints ---
     [NSLayoutConstraint activateConstraints:@[
@@ -129,15 +149,15 @@
         [_modIconView.heightAnchor constraintEqualToConstant:iconSize],
 
         [_nameLabel.leadingAnchor constraintEqualToAnchor:_modIconView.trailingAnchor constant:padding],
-        [_nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor],
+        [_nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor constant:2], // Adjust top alignment
 
-        [_loaderBadgesStackView.leadingAnchor constraintEqualToAnchor:_nameLabel.trailingAnchor constant:6],
+        [_loaderBadgesStackView.leadingAnchor constraintEqualToAnchor:_nameLabel.trailingAnchor constant:5],
         [_loaderBadgesStackView.centerYAnchor constraintEqualToAnchor:_nameLabel.centerYAnchor],
-        [_loaderBadgesStackView.heightAnchor constraintEqualToConstant:18],
+        [_loaderBadgesStackView.heightAnchor constraintEqualToConstant:16],
 
         [_descLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
         [_descLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
-        [_descLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:4],
+        [_descLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:3],
 
         // Make sure the cell's height is determined by its content
         [_descLabel.bottomAnchor constraintLessThanOrEqualToAnchor:self.contentView.bottomAnchor constant:-padding],

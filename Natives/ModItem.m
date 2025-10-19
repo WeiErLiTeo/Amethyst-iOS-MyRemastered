@@ -22,11 +22,12 @@
 
 - (instancetype)initWithOnlineData:(NSDictionary *)data {
     if (self = [super init]) {
-        // Data from Modrinth or CurseForge search results
-        _onlineID = data[@"id"] ? [data[@"id"] description] : nil; // Ensure string
+        // Data from Modrinth search results. Prioritize 'slug' for URLs.
+        _onlineID = data[@"slug"] ?: (data[@"project_id"] ? [data[@"project_id"] description] : nil);
         _displayName = data[@"title"] ?: @"";
-        _modDescription = data[@"description"] ?: @"";
-        _iconURL = data[@"imageUrl"] ?: @"";
+        // The short description in search results is 'summary'. 'description' is the full markdown body.
+        _modDescription = data[@"summary"] ?: (data[@"description"] ?: @"");
+        _iconURL = data[@"icon_url"] ?: @"";
         _author = data[@"author"] ?: @"";
 
         // Ensure numbers are handled correctly

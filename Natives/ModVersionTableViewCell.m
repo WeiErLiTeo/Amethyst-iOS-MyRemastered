@@ -78,6 +78,7 @@
     self.versionNumberLabel.text = version.versionNumber;
 
     NSISO8601DateFormatter *dateFormatter = [[NSISO8601DateFormatter alloc] init];
+    dateFormatter.formatOptions = NSISO8601DateFormatWithInternetDateTime | NSISO8601DateFormatWithFractionalSeconds;
     NSDate *date = [dateFormatter dateFromString:version.datePublished];
     if (date) {
         NSDateFormatter *displayFormatter = [[NSDateFormatter alloc] init];

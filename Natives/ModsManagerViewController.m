@@ -3,6 +3,7 @@
 #import "ModService.h"
 #import "ModItem.h"
 #import "installer/modpack/ModrinthAPI.h"
+#import "utils.h" // For getPrefObject
 
 @interface ModsManagerViewController () <UITableViewDataSource, UITableViewDelegate, ModTableViewCellDelegate, UISearchBarDelegate, ModVersionViewControllerDelegate>
 
@@ -35,6 +36,22 @@
     self.selectedModPaths = [NSMutableSet set];
     [self setupUI];
     [self refreshLocalModsList];
+
+    // Listen for settings changes
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(updateNavigationButtons)
+                                                 name:@"ModSettingsChanged"
+                                               object:nil];
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    // Update buttons in case settings changed while away
+    [self updateNavigationButtons];
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 - (void)setupUI {
@@ -53,7 +70,7 @@
     [self.tableView registerClass:[ModTableViewCell class] forCellReuseIdentifier:@"ModCell"];
     self.tableView.dataSource = self;
     self.tableView.delegate = self;
-    self.tableView.rowHeight = 88;
+    self.tableView.rowHeight = 76;
     self.tableView.tableFooterView = [UIView new];
     [self.view addSubview:self.tableView];
     UIRefreshControl *rc = [UIRefreshControl new];
@@ -118,14 +135,29 @@
 
 - (void)updateNavigationButtons {
     if (self.currentMode == ModsManagerModeLocal) {
+        NSMutableArray<UIBarButtonItem *> *rightBarButtonItems = [NSMutableArray array];
+
+        // Read settings. Default to YES if setting is nil.
+        BOOL batchEnabled = [getPrefObject(@"mod_management.enable_batch_management") boolValue] ?: YES;
+        BOOL refreshEnabled = [getPrefObject(@"mod_management.enable_refresh_button") boolValue] ?: YES;
+
         if (self.isBatchMode) {
-            self.batchButton = [[UIBarButtonItem alloc] initWithTitle:@"取消" style:UIBarButtonItemStyleDone target:self action:@selector(toggleBatchMode)];
+            if (batchEnabled) {
+                UIBarButtonItem *cancelButton = [[UIBarButtonItem alloc] initWithTitle:@"取消" style:UIBarButtonItemStyleDone target:self action:@selector(toggleBatchMode)];
+                [rightBarButtonItems addObject:cancelButton];
+            }
             UIBarButtonItem *deleteButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemTrash target:self action:@selector(deleteSelectedMods)];
-            self.navigationItem.rightBarButtonItems = @[self.batchButton, deleteButton];
+            [rightBarButtonItems addObject:deleteButton];
         } else {
-            self.batchButton = [[UIBarButtonItem alloc] initWithTitle:@"批量" style:UIBarButtonItemStylePlain target:self action:@selector(toggleBatchMode)];
-            self.navigationItem.rightBarButtonItems = @[self.refreshButton, self.batchButton];
+            if (refreshEnabled) {
+                [rightBarButtonItems addObject:self.refreshButton];
+            }
+            if (batchEnabled) {
+                self.batchButton = [[UIBarButtonItem alloc] initWithTitle:@"批量" style:UIBarButtonItemStylePlain target:self action:@selector(toggleBatchMode)];
+                [rightBarButtonItems addObject:self.batchButton];
+            }
         }
+        self.navigationItem.rightBarButtonItems = rightBarButtonItems;
     } else {
         self.navigationItem.rightBarButtonItems = nil;
     }
