@@ -269,7 +269,7 @@
             if (cell) {
                 [self callbackMicrosoftAuth:status success:success forCell:cell];
             } else {
-                // Handle case when sender is not a table view cell
+                // Обработка для случая, когда sender не ячейка таблицы
                 if (!success && status != nil) {
                     self.modalInPresentation = NO;
                     self.tableView.userInteractionEnabled = YES;
@@ -277,10 +277,8 @@
                     if ([status isKindOfClass:[NSError class]]) {
                         NSLog(@"[ThirdParty] Error: %@", [status localizedDescription]);
                         showDialog(localize(@"Error", nil), [status localizedDescription]);
-                    } else if ([status isKindOfClass:[NSString class]]) {
-                        showDialog(localize(@"Error", nil), status);
                     } else {
-                        showDialog(localize(@"Error", nil), [status localizedDescription]);
+                        showDialog(localize(@"Error", nil), status);
                     }
                 } else if (success) {
                     if ([status isKindOfClass:[NSString class]] && [status isEqualToString:@"DEMO"]) {
@@ -364,33 +362,42 @@
 - (void)callbackMicrosoftAuth:(id)status success:(BOOL)success forCell:(UITableViewCell *)cell {
     if (status != nil) {
         if (success) {
-            // Check if status is a string before assigning to detailTextLabel
-            if ([status isKindOfClass:[NSString class]]) {
-                cell.detailTextLabel.text = status;
-            } else {
+            // Успешный вход с некоторым сообщением
+            if ([status isKindOfClass:[NSError class]]) {
                 cell.detailTextLabel.text = [status localizedDescription];
+            } else {
+                if ([status isKindOfClass:[NSString class]] && [status isEqualToString:@"DEMO"]) {
+                    showDialog(localize(@"login.warn.title.demomode", nil), localize(@"login.warn.message.demomode", nil));
+                }
+                cell.detailTextLabel.text = [status isKindOfClass:[NSString class]] ? status : @"";
             }
         } else {
+            // Ошибка аутентификации
             self.modalInPresentation = NO;
             self.tableView.userInteractionEnabled = YES;
             [self removeActivityIndicatorFrom:cell];
             
-            // Handle both NSString and NSError cases
-            if ([status isKindOfClass:[NSString class]]) {
-                cell.detailTextLabel.text = status;
-                showDialog(localize(@"Error", nil), status);
-            } else if ([status isKindOfClass:[NSError class]]) {
+            if ([status isKindOfClass:[NSError class]]) {
                 cell.detailTextLabel.text = [status localizedDescription];
                 NSData *errorData = ((NSError *)status).userInfo[AFNetworkingOperationFailingURLResponseDataErrorKey];
-                NSString *errorStr = [[NSString alloc] initWithData:errorData encoding:NSUTF8StringEncoding];
-                NSLog(@"[MSA] Error: %@", errorStr);
-                showDialog(localize(@"Error", nil), errorStr);
+                if (errorData) {
+                    NSString *errorStr = [[NSString alloc] initWithData:errorData encoding:NSUTF8StringEncoding];
+                    NSLog(@"[MSA] Error: %@", errorStr);
+                    showDialog(localize(@"Error", nil), errorStr);
+                } else {
+                    showDialog(localize(@"Error", nil), [status localizedDescription]);
+                }
+            } else if ([status isKindOfClass:[NSString class]]) {
+                cell.detailTextLabel.text = status;
+                showDialog(localize(@"Error", nil), status);
             } else {
-                cell.detailTextLabel.text = [status localizedDescription];
-                showDialog(localize(@"Error", nil), [status localizedDescription]);
+                // Handle case where status is neither NSError nor NSString
+                cell.detailTextLabel.text = @"";
+                showDialog(localize(@"Error", nil), localize(@"login.error.invalid_response", nil));
             }
         }
     } else if (success) {
+        // Успешный вход без сообщений
         self.whenItemSelected();
         [self removeActivityIndicatorFrom:cell];
         [self dismissViewControllerAnimated:YES completion:nil];
