@@ -53,7 +53,7 @@
     [self.tableView registerClass:[ModTableViewCell class] forCellReuseIdentifier:@"ModCell"];
     self.tableView.dataSource = self;
     self.tableView.delegate = self;
-    self.tableView.rowHeight = 100;
+    self.tableView.rowHeight = 88;
     self.tableView.tableFooterView = [UIView new];
     [self.view addSubview:self.tableView];
     UIRefreshControl *rc = [UIRefreshControl new];
@@ -245,15 +245,19 @@
     ModTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"ModCell" forIndexPath:indexPath];
     cell.delegate = self;
 
+    ModItem *modItem;
     if (self.currentMode == ModsManagerModeLocal) {
-        ModItem *mod = self.filteredLocalMods[indexPath.row];
-        [cell configureWithMod:mod displayMode:ModTableViewCellDisplayModeLocal];
-        [cell updateBatchSelectionState:[self.selectedModPaths containsObject:mod.filePath] batchMode:self.isBatchMode];
+        modItem = self.filteredLocalMods[indexPath.row];
+        [cell configureWithMod:modItem displayMode:ModTableViewCellDisplayModeLocal];
+        [cell updateBatchSelectionState:[self.selectedModPaths containsObject:modItem.filePath] batchMode:self.isBatchMode];
     } else {
         NSDictionary *modData = self.onlineSearchResults[indexPath.row];
-        ModItem *modItem = [[ModItem alloc] initWithOnlineData:modData];
+        modItem = [[ModItem alloc] initWithOnlineData:modData];
         [cell configureWithMod:modItem displayMode:ModTableViewCellDisplayModeOnline];
     }
+
+    // Build and assign the menu for the info button
+    cell.openLinkButton.menu = [self createMenuForMod:modItem];
 
     return cell;
 }
@@ -462,8 +466,47 @@
     }
 }
 
-- (void)modCellDidTapOpenLink:(UITableViewCell *)cell {
-    // Not used in this controller, but required by protocol.
+- (UIMenu *)createMenuForMod:(ModItem *)modItem {
+    if (!modItem.onlineID && !modItem.displayName) {
+        return nil; // Cannot create actions without data
+    }
+
+    NSMutableArray<UIAction *> *actions = [NSMutableArray array];
+
+    // 1. Open on Modrinth
+    if (modItem.onlineID) {
+        UIAction *modrinthAction = [UIAction actionWithTitle:@"在 Modrinth 中打开" image:[UIImage systemImageNamed:@"safari"] identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
+            NSString *urlString = [NSString stringWithFormat:@"https://modrinth.com/mod/%@", modItem.onlineID];
+            NSURL *url = [NSURL URLWithString:urlString];
+            if (url) {
+                [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+            }
+        }];
+        [actions addObject:modrinthAction];
+    }
+
+    // 2. Search on MCMod
+    if (modItem.displayName) {
+        UIAction *mcmodAction = [UIAction actionWithTitle:@"在 MC 百科中搜索" image:[UIImage systemImageNamed:@"book"] identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
+            NSString *encodedName = [modItem.displayName stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]];
+            NSString *urlString = [NSString stringWithFormat:@"https://www.mcmod.cn/s?key=%@", encodedName];
+            NSURL *url = [NSURL URLWithString:urlString];
+            if (url) {
+                [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+            }
+        }];
+        [actions addObject:mcmodAction];
+    }
+
+    // 3. Copy Modrinth ID
+    if (modItem.onlineID) {
+        UIAction *copyIdAction = [UIAction actionWithTitle:@"复制 Modrinth ID" image:[UIImage systemImageNamed:@"doc.on.doc"] identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
+            [UIPasteboard generalPasteboard].string = modItem.onlineID;
+        }];
+        [actions addObject:copyIdAction];
+    }
+
+    return [UIMenu menuWithTitle:@"" children:actions];
 }
 
 @end

@@ -29,18 +29,34 @@
 
     NSMutableDictionary *dict = [NSMutableDictionary dictionary];
     BOOL inModTable = NO;
+    BOOL inMultiLineDesc = NO;
+    NSMutableString *multiLineString = nil;
 
     NSArray<NSString *> *lines = [s componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
 
     for (NSString *line in lines) {
         NSString *trimmed = [line stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
 
+        if (inMultiLineDesc) {
+            if ([trimmed hasSuffix:@"\"\"\""]) {
+                // End of multi-line string
+                [multiLineString appendString:[[trimmed substringToIndex:trimmed.length - 3] stringByReplacingOccurrencesOfString:@"\\\"" withString:@"\""]];
+                dict[@"description"] = [multiLineString copy];
+                inMultiLineDesc = NO;
+                multiLineString = nil;
+            } else {
+                [multiLineString appendString:[trimmed stringByReplacingOccurrencesOfString:@"\\\"" withString:@"\""]];
+                [multiLineString appendString:@"\n"]; // Preserve line breaks
+            }
+            continue;
+        }
+
         if ([trimmed isEqualToString:@"[[mods]]"]) {
             inModTable = YES;
             continue;
         }
 
-        if (inModTable && [trimmed hasPrefix:@"["]) {
+        if (inModTable && [trimmed hasPrefix:@"["] && ![trimmed hasPrefix:@"[["]) {
             // Reached the next table, so stop.
             break;
         }
@@ -51,11 +67,26 @@
                 NSString *key = [[trimmed substringToIndex:eqRange.location] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
                 NSString *val = [[trimmed substringFromIndex:NSMaxRange(eqRange)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
 
-                // Remove quotes
-                if ([val hasPrefix:@"\""] && [val hasSuffix:@"\""] && val.length > 1) {
-                    val = [val substringWithRange:NSMakeRange(1, val.length - 2)];
+                if ([key isEqualToString:@"description"] && [val hasPrefix:@"\"\"\""]) {
+                    inMultiLineDesc = YES;
+                    multiLineString = [NSMutableString string];
+                    // Check if it's a single-line multi-line string
+                    if ([val hasSuffix:@"\"\"\""] && val.length >= 6) {
+                        dict[key] = [[val substringWithRange:NSMakeRange(3, val.length - 6)] stringByReplacingOccurrencesOfString:@"\\\"" withString:@"\""];
+                        inMultiLineDesc = NO;
+                        multiLineString = nil;
+                    } else {
+                        [multiLineString appendString:[[val substringFromIndex:3] stringByReplacingOccurrencesOfString:@"\\\"" withString:@"\""]];
+                    }
+                } else {
+                    // Standard single-line value
+                    if (val.length >= 2 && (([val hasPrefix:@"\""] && [val hasSuffix:@"\""]) || ([val hasPrefix:@"'"] && [val hasSuffix:@"'"]))) {
+                        val = [val substringWithRange:NSMakeRange(1, val.length - 2)];
+                    }
+                    // Replace escaped characters like \"
+                    val = [val stringByReplacingOccurrencesOfString:@"\\\"" withString:@"\""];
+                    dict[key] = val;
                 }
-                dict[key] = val;
             }
         }
     }
@@ -288,8 +319,32 @@
 
 #pragma mark - File operations
 - (BOOL)toggleEnableForMod:(ModItem *)mod error:(NSError **)error {
-    // ... same implementation as before ...
-    return YES;
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSString *currentPath = mod.filePath;
+    NSString *newPath;
+
+    if (mod.disabled) {
+        // Enable the mod: remove .disabled suffix
+        if ([currentPath.lowercaseString hasSuffix:@".disabled"]) {
+            newPath = [currentPath substringToIndex:currentPath.length - 9];
+        } else {
+            // Should not happen, but handle gracefully
+            if (error) *error = [NSError errorWithDomain:@"ModServiceError" code:101 userInfo:@{NSLocalizedDescriptionKey:@"文件状态不一致，无法启用。"}];
+            return NO;
+        }
+    } else {
+        // Disable the mod: add .disabled suffix
+        newPath = [currentPath stringByAppendingString:@".disabled"];
+    }
+
+    BOOL success = [fileManager moveItemAtPath:currentPath toPath:newPath error:error];
+    if (success) {
+        // IMPORTANT: Update the model object to reflect the change
+        mod.filePath = newPath;
+        mod.disabled = !mod.disabled;
+    }
+
+    return success;
 }
 
 - (BOOL)deleteMod:(ModItem *)mod error:(NSError **)error {

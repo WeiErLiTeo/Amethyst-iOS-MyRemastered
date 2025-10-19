@@ -21,23 +21,23 @@
         self.contentView.backgroundColor = [UIColor systemBackgroundColor];
 
         // --- Initialization of UI Elements ---
-        _modIconView = [self createImageViewWithCornerRadius:8];
-        _nameLabel = [self createLabelWithFont:[UIFont boldSystemFontOfSize:17] textColor:[UIColor labelColor] numberOfLines:1];
-        _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:13] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
-        _descLabel = [self createLabelWithFont:[UIFont systemFontOfSize:14] textColor:[UIColor grayColor] numberOfLines:2];
-        _statsLabel = [self createLabelWithFont:[UIFont systemFontOfSize:13] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
-        _categoryLabel = [self createLabelWithFont:[UIFont systemFontOfSize:13] textColor:[UIColor systemBlueColor] numberOfLines:1];
+        _modIconView = [self createImageViewWithCornerRadius:6]; // Smaller corner radius
+        _nameLabel = [self createLabelWithFont:[UIFont boldSystemFontOfSize:16] textColor:[UIColor labelColor] numberOfLines:1];
+        _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
+        _descLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor grayColor] numberOfLines:2];
+        _statsLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
+        _categoryLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor systemBlueColor] numberOfLines:1];
 
         _enableSwitch = [[UISwitch alloc] init];
         _enableSwitch.translatesAutoresizingMaskIntoConstraints = NO;
         [_enableSwitch addTarget:self action:@selector(toggleTapped) forControlEvents:UIControlEventValueChanged];
 
         _downloadButton = [self createButtonWithTitle:@"下载" titleColor:[UIColor whiteColor] action:@selector(downloadTapped)];
-        _downloadButton.backgroundColor = [UIColor systemGreenColor];
-        _downloadButton.layer.cornerRadius = 15;
-        _downloadButton.contentEdgeInsets = UIEdgeInsetsMake(8, 15, 8, 15);
+        _downloadButton.backgroundColor = [UIColor systemBlueColor];
+        _downloadButton.layer.cornerRadius = 14;
+        _downloadButton.contentEdgeInsets = UIEdgeInsetsMake(6, 12, 6, 12);
 
-        _openLinkButton = [self createButtonWithImage:[UIImage systemImageNamed:@"globe"] action:@selector(openLinkTapped)];
+        _openLinkButton = [self createButtonWithImage:[UIImage systemImageNamed:@"info.circle"] action:@selector(openLinkTapped)];
 
         _loaderBadgesStackView = [[UIStackView alloc] init];
         _loaderBadgesStackView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -103,6 +103,9 @@
 - (UIButton *)createButtonWithImage:(UIImage *)image action:(SEL)action {
     UIButton *button = [self createButtonWithAction:action];
     [button setImage:image forState:UIControlStateNormal];
+    if (@available(iOS 14.0, *)) {
+        button.showsMenuAsPrimaryAction = YES;
+    }
     return button;
 }
 
@@ -115,8 +118,8 @@
 #pragma mark - Auto Layout Constraints
 
 - (void)setupConstraints {
-    CGFloat padding = 15.0;
-    CGFloat iconSize = 68.0;
+    CGFloat padding = 12.0;
+    CGFloat iconSize = 60.0;
 
     // --- Common Constraints ---
     [NSLayoutConstraint activateConstraints:@[
@@ -125,26 +128,33 @@
         [_modIconView.widthAnchor constraintEqualToConstant:iconSize],
         [_modIconView.heightAnchor constraintEqualToConstant:iconSize],
 
-        [_nameLabel.leadingAnchor constraintEqualToAnchor:_modIconView.trailingAnchor constant:10],
-        [_nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor constant:-2],
+        [_nameLabel.leadingAnchor constraintEqualToAnchor:_modIconView.trailingAnchor constant:padding],
+        [_nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor],
 
-        [_loaderBadgesStackView.leadingAnchor constraintEqualToAnchor:_nameLabel.trailingAnchor constant:8],
+        [_loaderBadgesStackView.leadingAnchor constraintEqualToAnchor:_nameLabel.trailingAnchor constant:6],
         [_loaderBadgesStackView.centerYAnchor constraintEqualToAnchor:_nameLabel.centerYAnchor],
-        [_loaderBadgesStackView.heightAnchor constraintEqualToConstant:20],
+        [_loaderBadgesStackView.heightAnchor constraintEqualToConstant:18],
 
         [_descLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
         [_descLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
-        [_descLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:5],
+        [_descLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:4],
 
         // Make sure the cell's height is determined by its content
         [_descLabel.bottomAnchor constraintLessThanOrEqualToAnchor:self.contentView.bottomAnchor constant:-padding],
         [_modIconView.bottomAnchor constraintLessThanOrEqualToAnchor:self.contentView.bottomAnchor constant:-padding],
     ]];
 
-    // --- Local Mode Constraints ---
+    // --- Right-aligned Buttons Constraints ---
     [NSLayoutConstraint activateConstraints:@[
-        [_enableSwitch.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+        // Enable switch is on the far right
         [_enableSwitch.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        [_enableSwitch.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+
+        // Info button is to the left of the enable switch
+        [_openLinkButton.trailingAnchor constraintEqualToAnchor:_enableSwitch.leadingAnchor constant:-8],
+        [_openLinkButton.centerYAnchor constraintEqualToAnchor:_enableSwitch.centerYAnchor],
+        [_openLinkButton.widthAnchor constraintEqualToConstant:28],
+        [_openLinkButton.heightAnchor constraintEqualToConstant:28],
     ]];
 
     // --- Online Mode Constraints ---
@@ -194,9 +204,9 @@
     _statsLabel.hidden = YES;
     _categoryLabel.hidden = YES;
     _downloadButton.hidden = YES;
-    _openLinkButton.hidden = YES;
 
     // Show local elements
+    _openLinkButton.hidden = NO; // Ensure it's visible
     _enableSwitch.hidden = NO;
     _loaderBadgesStackView.hidden = NO;
 
@@ -272,8 +282,8 @@
 }
 
 - (void)openLinkTapped {
-    if ([self.delegate respondsToSelector:@selector(modCellDidTapOpenLink:)]) {
-        [self.delegate modCellDidTapOpenLink:self];
+    if ([self.delegate respondsToSelector:@selector(modCellDidTapInfoButton:)]) {
+        [self.delegate modCellDidTapInfoButton:self];
     }
 }
 

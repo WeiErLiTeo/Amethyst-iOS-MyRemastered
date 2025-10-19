@@ -10,9 +10,9 @@ typedef NS_ENUM(NSInteger, ModTableViewCellDisplayMode) {
 };
 
 @protocol ModTableViewCellDelegate <NSObject>
+@optional
 - (void)modCellDidTapToggle:(UITableViewCell *)cell;
-- (void)modCellDidTapOpenLink:(UITableViewCell *)cell;
-@optional // Optional because it's only for online mode
+- (void)modCellDidTapInfoButton:(UITableViewCell *)cell;
 - (void)modCellDidTapDownload:(UITableViewCell *)cell;
 @end
 
