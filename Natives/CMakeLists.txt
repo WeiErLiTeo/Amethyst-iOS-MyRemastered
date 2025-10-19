@@ -133,7 +133,6 @@ add_executable(AngelAuraAmethyst
   installer/FabricUtils.m
   installer/modpack/ModpackUtils.m
   installer/modpack/ModpackAPI.m
-  installer/modpack/CurseForgeAPI.m
   installer/modpack/ModrinthAPI.m
 
   input/ControllerInput.m
@@ -185,6 +184,9 @@ add_executable(AngelAuraAmethyst
   ModTableViewCell.m
   ModTableViewController.m
   ModsManagerViewController.m
+  ModVersion.m
+  ModVersionViewController.m
+  ModVersionTableViewCell.m
 
   # Custom icon management sources
   CustomIconManager.m

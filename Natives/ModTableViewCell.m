@@ -1,436 +1,258 @@
-//
-//  ModTableViewCell.m
-//  AmethystMods
-//
-//  Created by Copilot on 2025-08-22.
-//  Updated: multi-badge support, original rendering, fixed layout & hit areas.
-//
-
 #import "ModTableViewCell.h"
 #import "ModItem.h"
 #import "ModService.h"
+#import <QuartzCore/QuartzCore.h>
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+#import "UIKit+AFNetworking.h"
+#pragma clang diagnostic pop
 
 @interface ModTableViewCell ()
 @property (nonatomic, strong) ModItem *currentMod;
+@property (nonatomic, strong) NSArray<NSLayoutConstraint *> *localModeConstraints;
+@property (nonatomic, strong) NSArray<NSLayoutConstraint *> *onlineModeConstraints;
 @end
 
 @implementation ModTableViewCell
 
 - (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
     if (self = [super initWithStyle:style reuseIdentifier:reuseIdentifier]) {
-        _modIconView = [[UIImageView alloc] initWithFrame:CGRectZero];
-        _modIconView.layer.cornerRadius = 6;
-        _modIconView.clipsToBounds = YES;
-        _modIconView.contentMode = UIViewContentModeScaleAspectFill;
+        self.selectionStyle = UITableViewCellSelectionStyleNone;
+        self.backgroundColor = [UIColor systemBackgroundColor];
+
+        // --- Initialization of UI Elements ---
+        _modIconView = [self createImageViewWithCornerRadius:8];
+        _nameLabel = [self createLabelWithFont:[UIFont boldSystemFontOfSize:16] textColor:[UIColor labelColor] numberOfLines:1];
+        _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
+        _descLabel = [self createLabelWithFont:[UIFont systemFontOfSize:13] textColor:[UIColor grayColor] numberOfLines:2];
+        _statsLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
+        _categoryLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor systemBlueColor] numberOfLines:1];
+
+        _toggleButton = [self createButtonWithAction:@selector(toggleTapped)];
+        _deleteButton = [self createButtonWithTitle:@"删除" titleColor:[UIColor systemRedColor] action:@selector(deleteTapped)];
+        _downloadButton = [self createButtonWithTitle:@"下载" titleColor:[UIColor systemGreenColor] action:@selector(downloadTapped)];
+        _openLinkButton = [self createButtonWithImage:[UIImage systemImageNamed:@"globe"] action:@selector(openLinkTapped)];
+
+        // Add subviews
         [self.contentView addSubview:_modIconView];
-
-        _loaderBadgeView1 = [[UIImageView alloc] initWithFrame:CGRectZero];
-        _loaderBadgeView1.contentMode = UIViewContentModeScaleAspectFit;
-        _loaderBadgeView1.hidden = YES;
-        [self.contentView addSubview:_loaderBadgeView1];
-
-        _loaderBadgeView2 = [[UIImageView alloc] initWithFrame:CGRectZero];
-        _loaderBadgeView2.contentMode = UIViewContentModeScaleAspectFit;
-        _loaderBadgeView2.hidden = YES;
-        [self.contentView addSubview:_loaderBadgeView2];
-
-        _loaderBadgeView3 = [[UIImageView alloc] initWithFrame:CGRectZero];
-        _loaderBadgeView3.contentMode = UIViewContentModeScaleAspectFit;
-        _loaderBadgeView3.hidden = YES;
-        [self.contentView addSubview:_loaderBadgeView3];
-
-        _nameLabel = [[UILabel alloc] initWithFrame:CGRectZero];
-        _nameLabel.font = [UIFont boldSystemFontOfSize:15];
-        _nameLabel.numberOfLines = 1;
         [self.contentView addSubview:_nameLabel];
-
-        _descLabel = [[UILabel alloc] initWithFrame:CGRectZero];
-        _descLabel.font = [UIFont systemFontOfSize:12];
-        _descLabel.textColor = [UIColor darkGrayColor];
-        _descLabel.numberOfLines = 2;
+        [self.contentView addSubview:_authorLabel];
         [self.contentView addSubview:_descLabel];
-
-        _toggleButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        _toggleButton.titleLabel.font = [UIFont systemFontOfSize:14];
-        [_toggleButton addTarget:self action:@selector(toggleTapped) forControlEvents:UIControlEventTouchUpInside];
-        _toggleButton.contentEdgeInsets = UIEdgeInsetsMake(4, 8, 4, 8);
+        [self.contentView addSubview:_statsLabel];
+        [self.contentView addSubview:_categoryLabel];
         [self.contentView addSubview:_toggleButton];
-
-        _openLinkButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        _openLinkButton.tintColor = [UIColor systemBlueColor];
-        _openLinkButton.titleLabel.font = [UIFont systemFontOfSize:14];
-        [_openLinkButton addTarget:self action:@selector(openLinkTapped) forControlEvents:UIControlEventTouchUpInside];
-        _openLinkButton.contentEdgeInsets = UIEdgeInsetsMake(6, 6, 6, 6);
-        _openLinkButton.hidden = YES;
-        _openLinkButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
-        _openLinkButton.imageView.contentMode = UIViewContentModeScaleAspectFit;
+        [self.contentView addSubview:_deleteButton];
+        [self.contentView addSubview:_downloadButton];
         [self.contentView addSubview:_openLinkButton];
 
-        _deleteButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        [_deleteButton setTitleColor:[UIColor systemRedColor] forState:UIControlStateNormal];
-        _deleteButton.titleLabel.font = [UIFont systemFontOfSize:14];
-        [_deleteButton setTitle:@"删除" forState:UIControlStateNormal];
-        [_deleteButton addTarget:self action:@selector(deleteTapped) forControlEvents:UIControlEventTouchUpInside];
-        _deleteButton.contentEdgeInsets = UIEdgeInsetsMake(4, 8, 4, 8);
-        [self.contentView addSubview:_deleteButton];
-
-        // Set default background color
-        self.contentView.backgroundColor = [UIColor systemBackgroundColor];
-
-        self.selectionStyle = UITableViewCellSelectionStyleNone;
+        [self setupConstraints];
     }
     return self;
 }
 
-- (void)layoutSubviews {
-    [super layoutSubviews];
-    CGFloat padding = 10;
-    CGFloat iconSize = 48;
-    
-    // Position mod icon view
-    CGFloat iconX = padding;
-    self.modIconView.frame = CGRectMake(iconX, padding, iconSize, iconSize);
+#pragma mark - UI Element Factory Methods
 
-    CGFloat x = CGRectGetMaxX(self.modIconView.frame) + 10;
-    CGFloat rightButtonsWidth = 170;
-    CGFloat contentWidth = self.contentView.bounds.size.width - x - padding - rightButtonsWidth;
-
-    // badges: up to three small icons horizontally
-    CGFloat badgeSize = 18;
-    CGFloat badgeY = padding + 2;
-    CGFloat badgeX = x;
-    UIImageView *badges[3] = {self.loaderBadgeView1, self.loaderBadgeView2, self.loaderBadgeView3};
-    for (int i = 0; i < 3; i++) {
-        UIImageView *bv = badges[i];
-        bv.frame = CGRectMake(badgeX, badgeY, badgeSize, badgeSize);
-        badgeX += badgeSize + 6;
-    }
-
-    CGFloat nameX = x;
-    // if first badge visible, shift nameX to after badges area for alignment
-    if (!self.loaderBadgeView1.hidden) {
-        // compute width used by visible badges
-        CGFloat used = 0;
-        for (int i = 0; i < 3; i++) {
-            UIImageView *bv = badges[i];
-            if (!bv.hidden) used += badgeSize + 6;
-        }
-        nameX += used;
-    }
-    self.nameLabel.frame = CGRectMake(nameX, padding, contentWidth - (nameX - x), 20);
-    self.descLabel.frame = CGRectMake(x, CGRectGetMaxY(self.nameLabel.frame) + 4, contentWidth, 36);
-
-    // buttons on right: delete | toggle | openLink
-    CGFloat btnW = 60;
-    CGFloat spacing = 8;
-    CGFloat right = self.contentView.bounds.size.width - padding;
-    self.deleteButton.frame = CGRectMake(right - btnW, 12, btnW, 28);
-    right = CGRectGetMinX(self.deleteButton.frame) - spacing;
-    self.toggleButton.frame = CGRectMake(right - btnW, 12, btnW, 28);
-    right = CGRectGetMinX(self.toggleButton.frame) - spacing;
-    CGFloat openW = 44;
-    self.openLinkButton.frame = CGRectMake(right - openW, 12, openW, 28);
-
-    // Bring interactive controls to front
-    [self.contentView bringSubviewToFront:self.deleteButton];
-    [self.contentView bringSubviewToFront:self.toggleButton];
-    [self.contentView bringSubviewToFront:self.openLinkButton];
+- (UIImageView *)createImageViewWithCornerRadius:(CGFloat)radius {
+    UIImageView *imageView = [[UIImageView alloc] init];
+    imageView.translatesAutoresizingMaskIntoConstraints = NO;
+    imageView.layer.cornerRadius = radius;
+    imageView.clipsToBounds = YES;
+    imageView.contentMode = UIViewContentModeScaleAspectFill;
+    imageView.layer.borderColor = [UIColor colorWithWhite:0.9 alpha:1.0].CGColor;
+    imageView.layer.borderWidth = 1.0;
+    return imageView;
 }
 
-- (void)prepareForReuse {
-    [super prepareForReuse];
-    self.modIconView.image = nil;
-    self.loaderBadgeView1.image = nil; self.loaderBadgeView1.hidden = YES;
-    self.loaderBadgeView2.image = nil; self.loaderBadgeView2.hidden = YES;
-    self.loaderBadgeView3.image = nil; self.loaderBadgeView3.hidden = YES;
-    self.openLinkButton.hidden = YES;
-    [self.openLinkButton setImage:nil forState:UIControlStateNormal];
-    self.nameLabel.attributedText = nil;
-    self.nameLabel.text = nil;
-    self.descLabel.text = nil;
-    self.currentMod = nil;
-    
-    // Reset batch mode state and clear borders
-    self.isBatchMode = NO;
-    self.isSelectedForBatch = NO;
-    
-    // Clear any existing borders from previous state
-    self.layer.borderColor = [UIColor clearColor].CGColor;
-    self.layer.borderWidth = 0.0;
-    self.layer.cornerRadius = 0.0;
-    self.contentView.layer.borderColor = [UIColor clearColor].CGColor;
-    self.contentView.layer.borderWidth = 0.0;
-    self.contentView.layer.cornerRadius = 0.0;
-    self.modIconView.layer.borderWidth = 0;
-    self.selectedBackgroundView = nil;
-    
-    // 确保按钮在重用时可见
-    self.toggleButton.hidden = NO;
-    self.deleteButton.hidden = NO;
-    
-    // 重置contentView的frame
-    self.contentView.frame = CGRectMake(0.0, 0.0, self.bounds.size.width, self.bounds.size.height);
+- (UILabel *)createLabelWithFont:(UIFont *)font textColor:(UIColor *)color numberOfLines:(NSInteger)lines {
+    UILabel *label = [[UILabel alloc] init];
+    label.translatesAutoresizingMaskIntoConstraints = NO;
+    label.font = font;
+    label.textColor = color;
+    label.numberOfLines = lines;
+    return label;
 }
 
-- (void)configureWithMod:(ModItem *)mod {
+- (UIButton *)createButtonWithAction:(SEL)action {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.translatesAutoresizingMaskIntoConstraints = NO;
+    [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+    return button;
+}
+
+- (UIButton *)createButtonWithTitle:(NSString *)title titleColor:(UIColor *)color action:(SEL)action {
+    UIButton *button = [self createButtonWithAction:action];
+    [button setTitle:title forState:UIControlStateNormal];
+    [button setTitleColor:color forState:UIControlStateNormal];
+    button.titleLabel.font = [UIFont boldSystemFontOfSize:14];
+    return button;
+}
+
+- (UIButton *)createButtonWithImage:(UIImage *)image action:(SEL)action {
+    UIButton *button = [self createButtonWithAction:action];
+    [button setImage:image forState:UIControlStateNormal];
+    return button;
+}
+
+- (UIImageView *)createBadgeImageView:(NSString *)imageName {
+    UIImageView *imageView = [[UIImageView alloc] initWithImage:[UIImage imageNamed:imageName]];
+    imageView.contentMode = UIViewContentModeScaleAspectFit;
+    return imageView;
+}
+
+#pragma mark - Auto Layout Constraints
+
+- (void)setupConstraints {
+    CGFloat padding = 12.0;
+    CGFloat iconSize = 76.0;
+
+    // Common constraints for all modes
+    [NSLayoutConstraint activateConstraints:@[
+        [_modIconView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:padding],
+        [_modIconView.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:padding],
+        [_modIconView.widthAnchor constraintEqualToConstant:iconSize],
+        [_modIconView.heightAnchor constraintEqualToConstant:iconSize],
+
+        [_nameLabel.leadingAnchor constraintEqualToAnchor:_modIconView.trailingAnchor constant:padding],
+        [_nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor],
+
+        _loaderBadgesStackView = [[UIStackView alloc] init];
+        _loaderBadgesStackView.translatesAutoresizingMaskIntoConstraints = NO;
+        _loaderBadgesStackView.axis = UILayoutConstraintAxisHorizontal;
+        _loaderBadgesStackView.spacing = 4;
+        _loaderBadgesStackView.alignment = UIStackViewAlignmentCenter;
+        [self.contentView addSubview:_loaderBadgesStackView];
+
+        [_loaderBadgesStackView.leadingAnchor constraintEqualToAnchor:_nameLabel.trailingAnchor constant:8],
+        [_loaderBadgesStackView.centerYAnchor constraintEqualToAnchor:_nameLabel.centerYAnchor],
+        [_loaderBadgesStackView.heightAnchor constraintEqualToConstant:16],
+
+        [_descLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
+        [_descLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        [_descLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:4],
+    ]];
+
+    // Constraints specific to Local Mode
+    self.localModeConstraints = @[
+        [_nameLabel.trailingAnchor constraintEqualToAnchor:_toggleButton.leadingAnchor constant:-padding],
+        [_toggleButton.trailingAnchor constraintEqualToAnchor:_deleteButton.leadingAnchor constant:-8],
+        [_deleteButton.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        [_toggleButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+        [_deleteButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+    ];
+
+    // Constraints specific to Online Mode
+    self.onlineModeConstraints = @[
+        [_nameLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        [_authorLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
+        [_authorLabel.topAnchor constraintEqualToAnchor:_descLabel.bottomAnchor constant:6],
+        [_statsLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
+        [_statsLabel.topAnchor constraintEqualToAnchor:_authorLabel.bottomAnchor constant:4],
+        [_downloadButton.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        [_downloadButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+    ];
+}
+
+#pragma mark - Configuration
+
+- (void)configureWithMod:(ModItem *)mod displayMode:(ModTableViewCellDisplayMode)mode {
     self.currentMod = mod;
 
-    // Border display logic is now handled exclusively in updateBatchSelectionState:
-    // This ensures consistent behavior and avoids conflicts during cell reuse
+    _nameLabel.text = mod.displayName ?: mod.fileName;
+    _descLabel.text = mod.modDescription;
 
-    // name + version
-    NSString *name = mod.displayName ?: mod.fileName;
-    NSString *version = mod.version ?: @"";
-    if (version.length > 0) {
-        NSMutableAttributedString *att = [[NSMutableAttributedString alloc] initWithString:name attributes:@{NSFontAttributeName: [UIFont boldSystemFontOfSize:15], NSForegroundColorAttributeName: [UIColor labelColor]}];
-        NSAttributedString *verAttr = [[NSAttributedString alloc] initWithString:[NSString stringWithFormat:@"  %@", version] attributes:@{NSFontAttributeName: [UIFont systemFontOfSize:13], NSForegroundColorAttributeName: [UIColor systemGrayColor]}];
-        [att appendAttributedString:verAttr];
-        self.nameLabel.attributedText = att;
+    if (mod.icon) {
+        _modIconView.image = mod.icon;
+    } else if (mod.iconURL) {
+        [_modIconView setImageWithURL:[NSURL URLWithString:mod.iconURL] placeholderImage:[UIImage systemImageNamed:@"puzzlepiece.extension"]];
     } else {
-        self.nameLabel.text = name;
+        _modIconView.image = [UIImage systemImageNamed:@"puzzlepiece.extension"];
     }
 
-    // description
-    self.descLabel.text = mod.modDescription ?: @"";
-
-    // toggle text
-    NSString *toggleTitle = mod.disabled ? @"启用" : @"禁用";
-    [self.toggleButton setTitle:toggleTitle forState:UIControlStateNormal];
-
-    // mod icon (as before)
-    UIImage *placeholder = [UIImage systemImageNamed:@"cube.box"];
-    self.modIconView.image = placeholder;
-    if (mod.iconURL.length > 0) {
-        NSString *cachePath = [[ModService sharedService] iconCachePathForURL:mod.iconURL];
-        if ([[NSFileManager defaultManager] fileExistsAtPath:cachePath]) {
-            NSData *d = [NSData dataWithContentsOfFile:cachePath];
-            UIImage *img = [UIImage imageWithData:d];
-            if (img) self.modIconView.image = img;
-        } else {
-            NSURL *url = [NSURL URLWithString:mod.iconURL];
-            if (url) {
-                dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-                    NSData *d = [NSData dataWithContentsOfURL:url];
-                    if (d) {
-                        [d writeToFile:cachePath atomically:YES];
-                        dispatch_async(dispatch_get_main_queue(), ^{
-                            UIImage *img = [UIImage imageWithData:d];
-                            if (img) self.modIconView.image = img;
-                        });
-                    }
-                });
-            }
-        }
-    }
-
-    // loader badges: try to show up to three icons: Fabric, Forge, NeoForge (in that order)
-    NSArray<UIImage *> *badgeImgs = [self loaderIconsForMod:mod traitCollection:self.traitCollection];
-    // assign to available badge views
-    NSArray<UIImageView *> *badgeViews = @[self.loaderBadgeView1, self.loaderBadgeView2, self.loaderBadgeView3];
-    for (NSUInteger i = 0; i < badgeViews.count; i++) {
-        UIImageView *bv = badgeViews[i];
-        if (i < badgeImgs.count && badgeImgs[i]) {
-            UIImage *orig = [badgeImgs[i] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
-            bv.image = orig;
-            bv.hidden = NO;
-        } else {
-            bv.image = nil;
-            bv.hidden = YES;
-        }
-    }
-
-    // open link button
-    if (mod.homepage.length > 0 || mod.sources.length > 0) {
-        self.openLinkButton.hidden = NO;
-        UIImage *globe = [UIImage systemImageNamed:@"globe"];
-        if (globe) {
-            // 设置地球图标为蓝色
-            globe = [globe imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-            [self.openLinkButton setImage:globe forState:UIControlStateNormal];
-            [self.openLinkButton setTintColor:[UIColor systemBlueColor]];
-            [self.openLinkButton setTitle:@"" forState:UIControlStateNormal];
-        } else {
-            [self.openLinkButton setTitle:@"🌐" forState:UIControlStateNormal];
-        }
-        self.openLinkButton.userInteractionEnabled = YES;
+    if (mode == ModTableViewCellDisplayModeLocal) {
+        [self configureForLocalMode:mod];
     } else {
-        self.openLinkButton.hidden = YES;
-    }
-    
-    // 根据mod是否被禁用来设置图标和名称的样式
-    if (mod.disabled) {
-        // 图标变灰 (增加虚化强度)
-        self.modIconView.alpha = 0.3;
-        
-        // 名称变灰并划掉 (不包括版本号)
-        NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithAttributedString:self.nameLabel.attributedText ?: [[NSAttributedString alloc] initWithString:self.nameLabel.text ?: @""]];
-        // 只对名称部分应用样式，版本号部分保持不变
-        NSString *name = mod.displayName ?: mod.fileName;
-        NSRange nameRange = [attributedString.string rangeOfString:name];
-        if (nameRange.location != NSNotFound) {
-            [attributedString addAttribute:NSForegroundColorAttributeName value:[UIColor grayColor] range:nameRange];
-            [attributedString addAttribute:NSStrikethroughStyleAttributeName value:@(NSUnderlineStyleSingle) range:nameRange];
-        }
-        self.nameLabel.attributedText = attributedString;
-    } else {
-        // 恢复图标正常状态
-        self.modIconView.alpha = 1.0;
-        
-        // 恢复名称正常状态
-        if (self.nameLabel.attributedText) {
-            NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithAttributedString:self.nameLabel.attributedText];
-            [attributedString removeAttribute:NSForegroundColorAttributeName range:NSMakeRange(0, attributedString.length)];
-            [attributedString removeAttribute:NSStrikethroughStyleAttributeName range:NSMakeRange(0, attributedString.length)];
-            self.nameLabel.attributedText = attributedString;
-        } else {
-            self.nameLabel.textColor = [UIColor labelColor];
-        }
+        [self configureForOnlineMode:mod];
     }
 }
 
-#pragma mark - loader icon loader
+- (void)configureForLocalMode:(ModItem *)mod {
+    // Hide online elements
+    _authorLabel.hidden = YES;
+    _statsLabel.hidden = YES;
+    _categoryLabel.hidden = YES;
+    _downloadButton.hidden = YES;
+    _loaderBadgesStackView.hidden = NO;
 
-- (NSArray<UIImage *> *)loaderIconsForMod:(ModItem *)mod traitCollection:(UITraitCollection *)traits {
-    if (!mod) return @[];
+    // Show local elements
+    _toggleButton.hidden = NO;
+    _deleteButton.hidden = NO;
 
-    NSMutableArray<UIImage *> *out = [NSMutableArray array];
+    // Clear previous badges
+    for (UIView *view in self.loaderBadgesStackView.arrangedSubviews) {
+        [self.loaderBadgesStackView removeArrangedSubview:view];
+        [view removeFromSuperview];
+    }
 
-    // Helper to load image by base name (fabric/forge/neoforge)
-    __weak typeof(self) wself = self;
-    UIImage *(^loadImage)(NSString *) = ^UIImage *(NSString *base) {
-        if (!base) return nil;
-        NSString *suffix = @"light";
-        if (@available(iOS 12.0, *)) {
-            if (traits) suffix = (traits.userInterfaceStyle == UIUserInterfaceStyleDark) ? @"dark" : @"light";
-            else suffix = ([UIScreen mainScreen].traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) ? @"dark":@"light";
-        }
-        NSString *resourceName = [NSString stringWithFormat:@"%@_%@", base, suffix];
-        UIImage *img = nil;
-        NSArray<NSString *> *resourceDirCandidates = @[@"ModLoaderIcons", @"Natives/ModLoaderIcons", @"Natives/ModLoaderIcons/Resources"];
-        for (NSString *dir in resourceDirCandidates) {
-            NSString *filePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:dir];
-            filePath = [filePath stringByAppendingPathComponent:[resourceName stringByAppendingPathExtension:@"png"]];
-            if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
-                img = [UIImage imageWithContentsOfFile:filePath];
-                if (img) break;
-            }
-        }
-        if (!img) {
-            NSString *fileInBundle = [[NSBundle mainBundle] pathForResource:resourceName ofType:@"png"];
-            if (fileInBundle) img = [UIImage imageWithContentsOfFile:fileInBundle];
-        }
-        if (!img) img = [UIImage imageNamed:resourceName];
-        return img;
-    };
-
-    // Always try to add in order Fabric, Forge, NeoForge if the mod supports them
+    // Add new badges based on mod properties
     if (mod.isFabric) {
-        UIImage *i = loadImage(@"fabric");
-        if (i) [out addObject:i];
+        [self.loaderBadgesStackView addArrangedSubview:[self createBadgeImageView:@"fabric_logo"]];
     }
     if (mod.isForge) {
-        UIImage *i = loadImage(@"forge");
-        if (i) [out addObject:i];
+        [self.loaderBadgesStackView addArrangedSubview:[self createBadgeImageView:@"forge_logo"]];
     }
     if (mod.isNeoForge) {
-        UIImage *i = loadImage(@"neoforge");
-        if (i) [out addObject:i];
+        [self.loaderBadgesStackView addArrangedSubview:[self createBadgeImageView:@"neoforge_logo"]];
     }
 
-    return out;
+    // Activate local constraints
+    [NSLayoutConstraint deactivateConstraints:self.onlineModeConstraints];
+    [NSLayoutConstraint activateConstraints:self.localModeConstraints];
+
+    [self updateToggleState:mod.disabled];
 }
 
-#pragma mark - Public Methods
+- (void)configureForOnlineMode:(ModItem *)mod {
+    // Hide local elements
+    _toggleButton.hidden = YES;
+    _deleteButton.hidden = YES;
+
+    // Show online elements
+    _authorLabel.hidden = NO;
+    _statsLabel.hidden = NO;
+    _downloadButton.hidden = NO;
+
+    // Activate online constraints
+    [NSLayoutConstraint deactivateConstraints:self.localModeConstraints];
+    [NSLayoutConstraint activateConstraints:self.onlineModeConstraints];
+
+    _authorLabel.text = [NSString stringWithFormat:@"by %@", mod.author ?: @"Unknown"];
+
+    NSNumberFormatter *formatter = [[NSNumberFormatter alloc] init];
+    formatter.numberStyle = NSNumberFormatterDecimalStyle;
+    NSString *downloadsStr = [formatter stringFromNumber:mod.downloads ?: @0];
+
+    _statsLabel.text = [NSString stringWithFormat:@"%@ downloads", downloadsStr];
+}
+
+
+#pragma mark - State Updates
 
 - (void)updateToggleState:(BOOL)disabled {
-    NSString *toggleTitle = disabled ? @"启用" : @"禁用";
-    [self.toggleButton setTitle:toggleTitle forState:UIControlStateNormal];
+    NSString *title = disabled ? @"启用" : @"禁用";
+    UIColor *color = disabled ? [UIColor systemBlueColor] : [UIColor systemOrangeColor];
+    [_toggleButton setTitle:title forState:UIControlStateNormal];
+    [_toggleButton setTitleColor:color forState:UIControlStateNormal];
     
-    // 更新图标和名称的样式
-    if (disabled) {
-        // 图标变灰 (增加虚化强度)
-        self.modIconView.alpha = 0.3;
-        
-        // 名称变灰并划掉 (不包括版本号)
-        NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithAttributedString:self.nameLabel.attributedText ?: [[NSAttributedString alloc] initWithString:self.nameLabel.text ?: @""]];
-        // 只对名称部分应用样式，版本号部分保持不变
-        if (self.currentMod) {
-            NSString *name = self.currentMod.displayName ?: self.currentMod.fileName;
-            NSRange nameRange = [attributedString.string rangeOfString:name];
-            if (nameRange.location != NSNotFound) {
-                [attributedString addAttribute:NSForegroundColorAttributeName value:[UIColor grayColor] range:nameRange];
-                [attributedString addAttribute:NSStrikethroughStyleAttributeName value:@(NSUnderlineStyleSingle) range:nameRange];
-            }
-        }
-        self.nameLabel.attributedText = attributedString;
-    } else {
-        // 恢复图标正常状态
-        self.modIconView.alpha = 1.0;
-        
-        // 恢复名称正常状态
-        if (self.nameLabel.attributedText) {
-            NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithAttributedString:self.nameLabel.attributedText];
-            [attributedString removeAttribute:NSForegroundColorAttributeName range:NSMakeRange(0, attributedString.length)];
-            [attributedString removeAttribute:NSStrikethroughStyleAttributeName range:NSMakeRange(0, attributedString.length)];
-            self.nameLabel.attributedText = attributedString;
-        } else {
-            self.nameLabel.textColor = [UIColor labelColor];
-        }
-    }
+    self.contentView.alpha = disabled ? 0.6 : 1.0;
 }
 
 - (void)updateBatchSelectionState:(BOOL)isSelected batchMode:(BOOL)batchMode {
-    // Only update if the state has changed
-    if (self.isSelectedForBatch == isSelected && self.isBatchMode == batchMode) {
-        return;
-    }
-    
-    self.isSelectedForBatch = isSelected;
     self.isBatchMode = batchMode;
-    
-    // Update selection border for batch mode (3px green border with 2px inset, iOS 14+ compatible)
     if (batchMode && isSelected) {
-        self.layer.borderColor = [UIColor greenColor].CGColor;
-        self.layer.borderWidth = 3.0;
-        self.layer.cornerRadius = 6.0;
-        self.layer.masksToBounds = YES;
-        self.contentView.layer.masksToBounds = YES;
-        self.selectedBackgroundView = nil;
-        
-        // Add a 2px inset by adjusting the frame
-        self.contentView.frame = CGRectMake(2.0, 2.0, self.bounds.size.width - 4.0, self.bounds.size.height - 4.0);
-        
-        // 在批量模式下不禁用按钮，保持正常状态
-        self.toggleButton.enabled = YES;
-        self.toggleButton.alpha = 1.0;
-        self.deleteButton.enabled = YES;
-        self.deleteButton.alpha = 1.0;
-        self.openLinkButton.enabled = YES;
-        self.openLinkButton.alpha = 1.0;
+        self.backgroundColor = [UIColor colorWithRed:0.0 green:1.0 blue:0.0 alpha:0.3];
     } else {
-        self.layer.borderColor = [UIColor clearColor].CGColor;
-        self.layer.borderWidth = 0.0;
-        self.layer.cornerRadius = 0.0;
-        self.selectedBackgroundView = nil;
-        
-        // Reset the frame
-        self.contentView.frame = CGRectMake(0.0, 0.0, self.bounds.size.width, self.bounds.size.height);
-        
-        // 退出批量模式时启用所有按钮并恢复透明度
-        self.toggleButton.enabled = YES;
-        self.toggleButton.alpha = 1.0;
-        self.deleteButton.enabled = YES;
-        self.deleteButton.alpha = 1.0;
-        self.openLinkButton.enabled = YES;
-        self.openLinkButton.alpha = 1.0;
-    }
-
-    // Update icon view border to indicate selection
-    if (batchMode && isSelected) {
-        self.modIconView.layer.borderWidth = 3.0;
-        self.modIconView.layer.borderColor = [UIColor whiteColor].CGColor;
-    } else {
-        self.modIconView.layer.borderWidth = 0;
+        self.backgroundColor = [UIColor systemBackgroundColor];
     }
 }
 
@@ -448,19 +270,17 @@
     }
 }
 
-- (void)openLinkTapped {
-    // 在批量模式下不执行跳转操作
-    if (self.isBatchMode) {
-        return;
+- (void)downloadTapped {
+    if ([self.delegate respondsToSelector:@selector(modCellDidTapDownload:)]) {
+        [self.delegate modCellDidTapDownload:self];
     }
-    
-    if (!self.currentMod) return;
-    if (!(self.currentMod.homepage.length || self.currentMod.sources.length)) return;
+}
+
+- (void)openLinkTapped {
     if ([self.delegate respondsToSelector:@selector(modCellDidTapOpenLink:)]) {
         [self.delegate modCellDidTapOpenLink:self];
     }
 }
 
-// Removed iconTapped: method to avoid conflicts with table view selection
-
 @end
+#pragma clang diagnostic pop

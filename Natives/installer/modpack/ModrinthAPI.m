@@ -74,6 +74,70 @@
     item[@"versionDetailsLoaded"] = @(YES);
 }
 
+- (void)getVersionsForModWithID:(NSString *)modID completion:(void (^)(NSArray<ModVersion *> * _Nullable versions, NSError * _Nullable error))completion {
+    NSString *urlString = [NSString stringWithFormat:@"%@/project/%@/version", self.apiBaseURL, modID];
+    NSURL *url = [NSURL URLWithString:urlString];
+
+    if (!url) {
+        if (completion) {
+            NSError *error = [NSError errorWithDomain:@"ModrinthAPIError" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"Invalid URL"}];
+            completion(nil, error);
+        }
+        return;
+    }
+
+    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        if (error) {
+            if (completion) {
+                completion(nil, error);
+            }
+            return;
+        }
+
+        if (!data) {
+            if (completion) {
+                NSError *dataError = [NSError errorWithDomain:@"ModrinthAPIError" code:-2 userInfo:@{NSLocalizedDescriptionKey: @"No data received"}];
+                completion(nil, dataError);
+            }
+            return;
+        }
+
+        NSError *jsonError = nil;
+        id jsonResult = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonError];
+
+        if (jsonError) {
+            if (completion) {
+                completion(nil, jsonError);
+            }
+            return;
+        }
+
+        if (![jsonResult isKindOfClass:[NSArray class]]) {
+            if (completion) {
+                NSError *formatError = [NSError errorWithDomain:@"ModrinthAPIError" code:-3 userInfo:@{NSLocalizedDescriptionKey: @"Unexpected JSON format"}];
+                completion(nil, formatError);
+            }
+            return;
+        }
+
+        NSMutableArray<ModVersion *> *versions = [NSMutableArray array];
+        for (NSDictionary *versionDict in jsonResult) {
+            if ([versionDict isKindOfClass:[NSDictionary class]]) {
+                ModVersion *version = [[ModVersion alloc] initWithDictionary:versionDict];
+                if (version) {
+                    [versions addObject:version];
+                }
+            }
+        }
+
+        if (completion) {
+            completion([versions copy], nil);
+        }
+    }];
+
+    [task resume];
+}
+
 - (void)downloader:(MinecraftResourceDownloadTask *)downloader submitDownloadTasksFromPackage:(NSString *)packagePath toPath:(NSString *)destPath {
     NSError *error;
     UZKArchive *archive = [[UZKArchive alloc] initWithPath:packagePath error:&error];
