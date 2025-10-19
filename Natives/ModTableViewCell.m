@@ -120,43 +120,43 @@
 
     // --- Common Constraints ---
     [NSLayoutConstraint activateConstraints:@[
-        _modIconView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:padding],
-        _modIconView.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:padding],
-        _modIconView.widthAnchor constraintEqualToConstant:iconSize],
-        _modIconView.heightAnchor constraintEqualToConstant:iconSize],
+        [_modIconView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:padding],
+        [_modIconView.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:padding],
+        [_modIconView.widthAnchor constraintEqualToConstant:iconSize],
+        [_modIconView.heightAnchor constraintEqualToConstant:iconSize],
 
-        _nameLabel.leadingAnchor constraintEqualToAnchor:_modIconView.trailingAnchor constant:10],
-        _nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor constant:-2],
+        [_nameLabel.leadingAnchor constraintEqualToAnchor:_modIconView.trailingAnchor constant:10],
+        [_nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor constant:-2],
 
-        _loaderBadgesStackView.leadingAnchor constraintEqualToAnchor:_nameLabel.trailingAnchor constant:8],
-        _loaderBadgesStackView.centerYAnchor constraintEqualToAnchor:_nameLabel.centerYAnchor],
-        _loaderBadgesStackView.heightAnchor constraintEqualToConstant:20],
+        [_loaderBadgesStackView.leadingAnchor constraintEqualToAnchor:_nameLabel.trailingAnchor constant:8],
+        [_loaderBadgesStackView.centerYAnchor constraintEqualToAnchor:_nameLabel.centerYAnchor],
+        [_loaderBadgesStackView.heightAnchor constraintEqualToConstant:20],
 
-        _descLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
-        _descLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
-        _descLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:5],
+        [_descLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
+        [_descLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        [_descLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:5],
 
         // Make sure the cell's height is determined by its content
-        _descLabel.bottomAnchor constraintLessThanOrEqualToAnchor:self.contentView.bottomAnchor constant:-padding],
-        _modIconView.bottomAnchor constraintLessThanOrEqualToAnchor:self.contentView.bottomAnchor constant:-padding],
+        [_descLabel.bottomAnchor constraintLessThanOrEqualToAnchor:self.contentView.bottomAnchor constant:-padding],
+        [_modIconView.bottomAnchor constraintLessThanOrEqualToAnchor:self.contentView.bottomAnchor constant:-padding],
     ]];
 
     // --- Local Mode Constraints ---
     [NSLayoutConstraint activateConstraints:@[
-        _enableSwitch.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
-        _enableSwitch.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        [_enableSwitch.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+        [_enableSwitch.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
     ]];
 
     // --- Online Mode Constraints ---
     [NSLayoutConstraint activateConstraints:@[
-        _authorLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
-        _authorLabel.topAnchor constraintEqualToAnchor:_descLabel.bottomAnchor constant:6],
+        [_authorLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
+        [_authorLabel.topAnchor constraintEqualToAnchor:_descLabel.bottomAnchor constant:6],
 
-        _statsLabel.leadingAnchor constraintEqualToAnchor:_authorLabel.trailingAnchor constant:8],
-        _statsLabel.centerYAnchor constraintEqualToAnchor:_authorLabel.centerYAnchor],
+        [_statsLabel.leadingAnchor constraintEqualToAnchor:_authorLabel.trailingAnchor constant:8],
+        [_statsLabel.centerYAnchor constraintEqualToAnchor:_authorLabel.centerYAnchor],
 
-        _downloadButton.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
-        _downloadButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+        [_downloadButton.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        [_downloadButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
 
         // Ensure name label doesn't overlap with badges or buttons
         [_nameLabel.trailingAnchor constraintLessThanOrEqualToAnchor:_loaderBadgesStackView.leadingAnchor constant:-8],

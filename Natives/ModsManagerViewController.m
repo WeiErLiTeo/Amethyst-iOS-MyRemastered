@@ -447,20 +447,18 @@
     if (!indexPath || self.currentMode != ModsManagerModeLocal) return;
 
     ModItem *mod = self.filteredLocalMods[indexPath.row];
-    BOOL newDisabledState = !mod.disabled;
 
     NSError *error = nil;
-    [[ModService sharedService] setMod:mod disabled:newDisabledState error:&error];
+    BOOL success = [[ModService sharedService] toggleEnableForMod:mod error:&error];
 
-    if (error) {
+    if (!success) {
         NSLog(@"[ModsManager] Error toggling mod: %@", error);
         // Optionally show an alert to the user
         // Revert the switch state if the operation failed
         [(ModTableViewCell *)cell updateToggleState:mod.disabled];
     } else {
-        mod.disabled = newDisabledState; // Update the model
-        // Visually update the cell immediately
-        [(ModTableViewCell *)cell updateToggleState:newDisabledState];
+        // The service already changed the mod's state, so we just update the UI
+        [(ModTableViewCell *)cell updateToggleState:mod.disabled];
     }
 }
 
