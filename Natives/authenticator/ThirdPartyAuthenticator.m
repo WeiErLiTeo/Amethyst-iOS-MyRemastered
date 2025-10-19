@@ -208,8 +208,17 @@ static NSError* createError(NSString *message, NSInteger code) {
                 ];
             }
             
-            // Set avatar URL
-            self.authData[@"profilePicURL"] = [NSString stringWithFormat:@"https://skin.ely.by/helm/%@/120", self.authData[@"profileId"]];
+            // Set avatar URL based on server
+            NSString *serverURL = self.authData[@"authserver"] ?: @"https://authserver.ely.by";
+            if ([serverURL rangeOfString:@"ely.by"].location != NSNotFound) {
+                self.authData[@"profilePicURL"] = [NSString stringWithFormat:@"https://skin.ely.by/helm/%@/120", self.authData[@"profileId"]];
+            } else if ([serverURL rangeOfString:@"mcskin.com.cn"].location != NSNotFound) {
+                // Redstone skin station uses different format
+                self.authData[@"profilePicURL"] = [NSString stringWithFormat:@"https://mcskin.com.cn/skin/%@.png", self.authData[@"profileId"]];
+            } else {
+                // For other servers, try to construct a generic URL or use a default
+                self.authData[@"profilePicURL"] = [NSString stringWithFormat:@"https://crafatar.com/avatars/%@?overlay", self.authData[@"profileId"]];
+            }
             
             // Token expiration time (24 hours)
             self.authData[@"expiresAt"] = @((long)[NSDate.date timeIntervalSince1970] + 86400);
@@ -434,8 +443,17 @@ static NSError* createError(NSString *message, NSInteger code) {
                         self.authData[@"profileId"] = uuid;
                     }
                     
-                    // Update avatar URL
-                    self.authData[@"profilePicURL"] = [NSString stringWithFormat:@"https://skin.ely.by/helm/%@/120", self.authData[@"profileId"]];
+                    // Update avatar URL based on server
+                    NSString *serverURL = self.authData[@"authserver"] ?: @"https://authserver.ely.by";
+                    if ([serverURL rangeOfString:@"ely.by"].location != NSNotFound) {
+                        self.authData[@"profilePicURL"] = [NSString stringWithFormat:@"https://skin.ely.by/helm/%@/120", self.authData[@"profileId"]];
+                    } else if ([serverURL rangeOfString:@"mcskin.com.cn"].location != NSNotFound) {
+                        // Redstone skin station uses different format
+                        self.authData[@"profilePicURL"] = [NSString stringWithFormat:@"https://mcskin.com.cn/skin/%@.png", self.authData[@"profileId"]];
+                    } else {
+                        // For other servers, try to construct a generic URL or use a default
+                        self.authData[@"profilePicURL"] = [NSString stringWithFormat:@"https://crafatar.com/avatars/%@?overlay", self.authData[@"profileId"]];
+                    }
                 }
                 
                 // Token expiration time (24 hours)
