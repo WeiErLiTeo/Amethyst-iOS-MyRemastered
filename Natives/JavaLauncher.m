@@ -225,11 +225,11 @@ int launchJVM(NSString *username, id launchTarget, int width, int height, int mi
     }
 
     // 添加authlib-injector参数以支持第三方认证账户的皮肤显示
-    if ([username length] > 0 && [BaseAuthenticator.current isKindOfClass:ThirdPartyAuthenticator.class]) {
-        NSDictionary *authData = BaseAuthenticator.current.authData;
-        if (authData[@"authserver"] != nil) {
+    if ([username length] > 0 && [BaseAuthenticator.current isKindOfClass:[ThirdPartyAuthenticator class]]) {
+        BaseAuthenticator *currentAuth = BaseAuthenticator.current;
+        if (currentAuth.authData[@"authserver"] != nil) {
             NSLog(@"[JavaLauncher] Adding authlib-injector arguments for third party account");
-            NSArray *authlibArgs = [(ThirdPartyAuthenticator *)BaseAuthenticator.current getJvmArgsForAuthlib];
+            NSArray *authlibArgs = [(ThirdPartyAuthenticator *)currentAuth getJvmArgsForAuthlib];
             if (authlibArgs.count > 0) {
                 for (NSString *arg in authlibArgs) {
                     margv[++margc] = arg.UTF8String;
