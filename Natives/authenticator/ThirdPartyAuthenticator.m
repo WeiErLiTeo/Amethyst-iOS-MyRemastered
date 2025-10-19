@@ -376,6 +376,23 @@ static NSError* createError(NSString *message, NSInteger code) {
                 if (response[@"selectedProfile"]) {
                     self.authData[@"username"] = response[@"selectedProfile"][@"name"];
                     self.authData[@"uuid"] = response[@"selectedProfile"][@"id"];
+                    
+                    // Format UUID with hyphens if needed
+                    NSString *uuid = response[@"selectedProfile"][@"id"];
+                    if (uuid.length == 32) { // If UUID without hyphens
+                        self.authData[@"profileId"] = [NSString stringWithFormat:@"%@-%@-%@-%@-%@",
+                            [uuid substringWithRange:NSMakeRange(0, 8)],
+                            [uuid substringWithRange:NSMakeRange(8, 4)],
+                            [uuid substringWithRange:NSMakeRange(12, 4)],
+                            [uuid substringWithRange:NSMakeRange(16, 4)],
+                            [uuid substringWithRange:NSMakeRange(20, 12)]
+                        ];
+                    } else {
+                        self.authData[@"profileId"] = uuid;
+                    }
+                    
+                    // Update avatar URL
+                    self.authData[@"profilePicURL"] = [NSString stringWithFormat:@"https://skin.ely.by/helm/%@/120", self.authData[@"profileId"]];
                 }
                 
                 // Token expiration time (24 hours)
