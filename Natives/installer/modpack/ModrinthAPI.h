@@ -5,6 +5,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface ModrinthAPI : ModpackAPI
++ (instancetype)sharedInstance;
 - (void)getVersionsForModWithID:(NSString *)modID completion:(void (^)(NSArray<ModVersion *> * _Nullable versions, NSError * _Nullable error))completion;
 @end
 

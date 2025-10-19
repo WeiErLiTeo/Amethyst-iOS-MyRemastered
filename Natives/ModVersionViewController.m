@@ -3,7 +3,7 @@
 #import "ModVersion.h"
 #import "ModVersionTableViewCell.h"
 
-@interface ModVersionViewController () <UITableViewDataSource, UITableViewDelegate, UIPickerViewDataSource, UIPickerViewDelegate>
+@interface ModVersionViewController () <UITableViewDataSource, UITableViewDelegate>
 
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) UISegmentedControl *gameVersionSegmentedControl;

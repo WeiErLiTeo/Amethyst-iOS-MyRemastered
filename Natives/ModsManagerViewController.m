@@ -16,7 +16,6 @@
 @property (nonatomic, strong) UIBarButtonItem *refreshButton;
 @property (nonatomic, strong) NSMutableArray<ModItem *> *localMods;
 @property (nonatomic, strong) NSMutableArray<ModItem *> *filteredLocalMods;
-@property (nonatomic, strong) ModrinthAPI *modrinthAPI;
 
 @end
 
@@ -34,7 +33,6 @@
     self.filteredLocalMods = [NSMutableArray array];
     self.onlineSearchResults = [NSMutableArray array];
     self.selectedModPaths = [NSMutableSet set];
-    self.modrinthAPI = [[ModrinthAPI alloc] init];
     [self setupUI];
     [self refreshLocalModsList];
 }
@@ -173,7 +171,7 @@
     NSDictionary *filters = @{@"name": searchText};
 
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        NSMutableArray *modrinthResults = [self.modrinthAPI searchModWithFilters:filters previousPageResult:nil];
+        NSMutableArray *modrinthResults = [[ModrinthAPI sharedInstance] searchModWithFilters:filters previousPageResult:nil];
 
         dispatch_async(dispatch_get_main_queue(), ^{
             if (modrinthResults) {
@@ -375,6 +373,14 @@
         // Handle online search item selection if necessary (e.g., show details)
         [tableView deselectRowAtIndexPath:indexPath animated:YES];
     }
+}
+
+// Stub implementations for unused delegate methods to silence warnings
+- (void)modCellDidTapToggle:(UITableViewCell *)cell {
+    // Not used in this controller in local mode, but required by protocol.
+}
+- (void)modCellDidTapOpenLink:(UITableViewCell *)cell {
+    // Not used in this controller, but required by protocol.
 }
 
 @end
