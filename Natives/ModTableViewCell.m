@@ -10,8 +10,6 @@
 
 @interface ModTableViewCell ()
 @property (nonatomic, strong) ModItem *currentMod;
-@property (nonatomic, strong) NSArray<NSLayoutConstraint *> *localModeConstraints;
-@property (nonatomic, strong) NSArray<NSLayoutConstraint *> *onlineModeConstraints;
 @end
 
 @implementation ModTableViewCell
@@ -19,19 +17,26 @@
 - (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
     if (self = [super initWithStyle:style reuseIdentifier:reuseIdentifier]) {
         self.selectionStyle = UITableViewCellSelectionStyleNone;
-        self.backgroundColor = [UIColor systemBackgroundColor];
+        self.backgroundColor = [UIColor clearColor]; // Use clear color for custom background view
+        self.contentView.backgroundColor = [UIColor systemBackgroundColor];
 
         // --- Initialization of UI Elements ---
         _modIconView = [self createImageViewWithCornerRadius:8];
-        _nameLabel = [self createLabelWithFont:[UIFont boldSystemFontOfSize:16] textColor:[UIColor labelColor] numberOfLines:1];
-        _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
-        _descLabel = [self createLabelWithFont:[UIFont systemFontOfSize:13] textColor:[UIColor grayColor] numberOfLines:2];
-        _statsLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
-        _categoryLabel = [self createLabelWithFont:[UIFont systemFontOfSize:12] textColor:[UIColor systemBlueColor] numberOfLines:1];
+        _nameLabel = [self createLabelWithFont:[UIFont boldSystemFontOfSize:17] textColor:[UIColor labelColor] numberOfLines:1];
+        _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:13] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
+        _descLabel = [self createLabelWithFont:[UIFont systemFontOfSize:14] textColor:[UIColor grayColor] numberOfLines:2];
+        _statsLabel = [self createLabelWithFont:[UIFont systemFontOfSize:13] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
+        _categoryLabel = [self createLabelWithFont:[UIFont systemFontOfSize:13] textColor:[UIColor systemBlueColor] numberOfLines:1];
 
-        _toggleButton = [self createButtonWithAction:@selector(toggleTapped)];
-        _deleteButton = [self createButtonWithTitle:@"删除" titleColor:[UIColor systemRedColor] action:@selector(deleteTapped)];
-        _downloadButton = [self createButtonWithTitle:@"下载" titleColor:[UIColor systemGreenColor] action:@selector(downloadTapped)];
+        _enableSwitch = [[UISwitch alloc] init];
+        _enableSwitch.translatesAutoresizingMaskIntoConstraints = NO;
+        [_enableSwitch addTarget:self action:@selector(toggleTapped) forControlEvents:UIControlEventValueChanged];
+
+        _downloadButton = [self createButtonWithTitle:@"下载" titleColor:[UIColor whiteColor] action:@selector(downloadTapped)];
+        _downloadButton.backgroundColor = [UIColor systemGreenColor];
+        _downloadButton.layer.cornerRadius = 15;
+        _downloadButton.contentEdgeInsets = UIEdgeInsetsMake(8, 15, 8, 15);
+
         _openLinkButton = [self createButtonWithImage:[UIImage systemImageNamed:@"globe"] action:@selector(openLinkTapped)];
 
         _loaderBadgesStackView = [[UIStackView alloc] init];
@@ -48,8 +53,7 @@
         [self.contentView addSubview:_descLabel];
         [self.contentView addSubview:_statsLabel];
         [self.contentView addSubview:_categoryLabel];
-        [self.contentView addSubview:_toggleButton];
-        [self.contentView addSubview:_deleteButton];
+        [self.contentView addSubview:_enableSwitch];
         [self.contentView addSubview:_downloadButton];
         [self.contentView addSubview:_openLinkButton];
 
@@ -66,8 +70,7 @@
     imageView.layer.cornerRadius = radius;
     imageView.clipsToBounds = YES;
     imageView.contentMode = UIViewContentModeScaleAspectFill;
-    imageView.layer.borderColor = [UIColor colorWithWhite:0.9 alpha:1.0].CGColor;
-    imageView.layer.borderWidth = 1.0;
+    imageView.backgroundColor = [UIColor secondarySystemBackgroundColor];
     return imageView;
 }
 
@@ -77,6 +80,8 @@
     label.font = font;
     label.textColor = color;
     label.numberOfLines = lines;
+    [label setContentCompressionResistancePriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
+    [label setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
     return label;
 }
 
@@ -91,7 +96,7 @@
     UIButton *button = [self createButtonWithAction:action];
     [button setTitle:title forState:UIControlStateNormal];
     [button setTitleColor:color forState:UIControlStateNormal];
-    button.titleLabel.font = [UIFont boldSystemFontOfSize:14];
+    button.titleLabel.font = [UIFont boldSystemFontOfSize:15];
     return button;
 }
 
@@ -110,47 +115,54 @@
 #pragma mark - Auto Layout Constraints
 
 - (void)setupConstraints {
-    CGFloat padding = 12.0;
-    CGFloat iconSize = 76.0;
+    CGFloat padding = 15.0;
+    CGFloat iconSize = 68.0;
 
-    // Common constraints for all modes
+    // --- Common Constraints ---
     [NSLayoutConstraint activateConstraints:@[
-        [_modIconView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:padding],
-        [_modIconView.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:padding],
-        [_modIconView.widthAnchor constraintEqualToConstant:iconSize],
-        [_modIconView.heightAnchor constraintEqualToConstant:iconSize],
+        _modIconView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:padding],
+        _modIconView.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:padding],
+        _modIconView.widthAnchor constraintEqualToConstant:iconSize],
+        _modIconView.heightAnchor constraintEqualToConstant:iconSize],
 
-        [_nameLabel.leadingAnchor constraintEqualToAnchor:_modIconView.trailingAnchor constant:padding],
-        [_nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor],
+        _nameLabel.leadingAnchor constraintEqualToAnchor:_modIconView.trailingAnchor constant:10],
+        _nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor constant:-2],
 
-        [_loaderBadgesStackView.leadingAnchor constraintEqualToAnchor:_nameLabel.trailingAnchor constant:8],
-        [_loaderBadgesStackView.centerYAnchor constraintEqualToAnchor:_nameLabel.centerYAnchor],
-        [_loaderBadgesStackView.heightAnchor constraintEqualToConstant:16],
+        _loaderBadgesStackView.leadingAnchor constraintEqualToAnchor:_nameLabel.trailingAnchor constant:8],
+        _loaderBadgesStackView.centerYAnchor constraintEqualToAnchor:_nameLabel.centerYAnchor],
+        _loaderBadgesStackView.heightAnchor constraintEqualToConstant:20],
 
-        [_descLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
-        [_descLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
-        [_descLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:4],
+        _descLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
+        _descLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        _descLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:5],
+
+        // Make sure the cell's height is determined by its content
+        _descLabel.bottomAnchor constraintLessThanOrEqualToAnchor:self.contentView.bottomAnchor constant:-padding],
+        _modIconView.bottomAnchor constraintLessThanOrEqualToAnchor:self.contentView.bottomAnchor constant:-padding],
     ]];
 
-    // Constraints specific to Local Mode
-    self.localModeConstraints = @[
-        [_nameLabel.trailingAnchor constraintEqualToAnchor:_toggleButton.leadingAnchor constant:-padding],
-        [_toggleButton.trailingAnchor constraintEqualToAnchor:_deleteButton.leadingAnchor constant:-8],
-        [_deleteButton.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
-        [_toggleButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
-        [_deleteButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
-    ];
+    // --- Local Mode Constraints ---
+    [NSLayoutConstraint activateConstraints:@[
+        _enableSwitch.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+        _enableSwitch.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+    ]];
 
-    // Constraints specific to Online Mode
-    self.onlineModeConstraints = @[
-        [_nameLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
-        [_authorLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
-        [_authorLabel.topAnchor constraintEqualToAnchor:_descLabel.bottomAnchor constant:6],
-        [_statsLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
-        [_statsLabel.topAnchor constraintEqualToAnchor:_authorLabel.bottomAnchor constant:4],
-        [_downloadButton.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
-        [_downloadButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
-    ];
+    // --- Online Mode Constraints ---
+    [NSLayoutConstraint activateConstraints:@[
+        _authorLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
+        _authorLabel.topAnchor constraintEqualToAnchor:_descLabel.bottomAnchor constant:6],
+
+        _statsLabel.leadingAnchor constraintEqualToAnchor:_authorLabel.trailingAnchor constant:8],
+        _statsLabel.centerYAnchor constraintEqualToAnchor:_authorLabel.centerYAnchor],
+
+        _downloadButton.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        _downloadButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+
+        // Ensure name label doesn't overlap with badges or buttons
+        [_nameLabel.trailingAnchor constraintLessThanOrEqualToAnchor:_loaderBadgesStackView.leadingAnchor constant:-8],
+        [_loaderBadgesStackView.trailingAnchor constraintLessThanOrEqualToAnchor:_enableSwitch.leadingAnchor constant:-padding],
+        [_loaderBadgesStackView.trailingAnchor constraintLessThanOrEqualToAnchor:_downloadButton.leadingAnchor constant:-padding],
+    ]];
 }
 
 #pragma mark - Configuration
@@ -182,11 +194,11 @@
     _statsLabel.hidden = YES;
     _categoryLabel.hidden = YES;
     _downloadButton.hidden = YES;
-    _loaderBadgesStackView.hidden = NO;
+    _openLinkButton.hidden = YES;
 
     // Show local elements
-    _toggleButton.hidden = NO;
-    _deleteButton.hidden = NO;
+    _enableSwitch.hidden = NO;
+    _loaderBadgesStackView.hidden = NO;
 
     // Clear previous badges
     for (UIView *view in self.loaderBadgesStackView.arrangedSubviews) {
@@ -205,26 +217,19 @@
         [self.loaderBadgesStackView addArrangedSubview:[self createBadgeImageView:@"neoforge_logo"]];
     }
 
-    // Activate local constraints
-    [NSLayoutConstraint deactivateConstraints:self.onlineModeConstraints];
-    [NSLayoutConstraint activateConstraints:self.localModeConstraints];
-
     [self updateToggleState:mod.disabled];
 }
 
 - (void)configureForOnlineMode:(ModItem *)mod {
     // Hide local elements
-    _toggleButton.hidden = YES;
-    _deleteButton.hidden = YES;
+    _enableSwitch.hidden = YES;
+    _loaderBadgesStackView.hidden = YES; // Badges aren't shown in online mode for now
 
     // Show online elements
     _authorLabel.hidden = NO;
     _statsLabel.hidden = NO;
     _downloadButton.hidden = NO;
-
-    // Activate online constraints
-    [NSLayoutConstraint deactivateConstraints:self.localModeConstraints];
-    [NSLayoutConstraint activateConstraints:self.onlineModeConstraints];
+    _openLinkButton.hidden = NO;
 
     _authorLabel.text = [NSString stringWithFormat:@"by %@", mod.author ?: @"Unknown"];
 
@@ -239,11 +244,7 @@
 #pragma mark - State Updates
 
 - (void)updateToggleState:(BOOL)disabled {
-    NSString *title = disabled ? @"启用" : @"禁用";
-    UIColor *color = disabled ? [UIColor systemBlueColor] : [UIColor systemOrangeColor];
-    [_toggleButton setTitle:title forState:UIControlStateNormal];
-    [_toggleButton setTitleColor:color forState:UIControlStateNormal];
-    
+    [_enableSwitch setOn:!disabled animated:YES];
     self.contentView.alpha = disabled ? 0.6 : 1.0;
 }
 
@@ -261,12 +262,6 @@
 - (void)toggleTapped {
     if ([self.delegate respondsToSelector:@selector(modCellDidTapToggle:)]) {
         [self.delegate modCellDidTapToggle:self];
-    }
-}
-
-- (void)deleteTapped {
-    if ([self.delegate respondsToSelector:@selector(modCellDidTapDelete:)]) {
-        [self.delegate modCellDidTapDelete:self];
     }
 }
 

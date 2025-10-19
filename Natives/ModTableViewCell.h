@@ -11,7 +11,6 @@ typedef NS_ENUM(NSInteger, ModTableViewCellDisplayMode) {
 
 @protocol ModTableViewCellDelegate <NSObject>
 - (void)modCellDidTapToggle:(UITableViewCell *)cell;
-- (void)modCellDidTapDelete:(UITableViewCell *)cell;
 - (void)modCellDidTapOpenLink:(UITableViewCell *)cell;
 @optional // Optional because it's only for online mode
 - (void)modCellDidTapDownload:(UITableViewCell *)cell;
@@ -29,8 +28,7 @@ typedef NS_ENUM(NSInteger, ModTableViewCellDisplayMode) {
 @property (nonatomic, strong) UIStackView *loaderBadgesStackView; // Container for loader icons
 
 // --- Action Buttons ---
-@property (nonatomic, strong) UIButton *toggleButton;
-@property (nonatomic, strong) UIButton *deleteButton;
+@property (nonatomic, strong) UISwitch *enableSwitch;
 @property (nonatomic, strong) UIButton *downloadButton; // For online mode
 @property (nonatomic, strong) UIButton *openLinkButton;
 

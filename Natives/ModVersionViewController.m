@@ -6,8 +6,8 @@
 @interface ModVersionViewController () <UITableViewDataSource, UITableViewDelegate>
 
 @property (nonatomic, strong) UITableView *tableView;
-@property (nonatomic, strong) UISegmentedControl *gameVersionSegmentedControl;
-@property (nonatomic, strong) UISegmentedControl *loaderSegmentedControl;
+@property (nonatomic, strong) UIButton *gameVersionFilterButton;
+@property (nonatomic, strong) UIButton *loaderFilterButton;
 
 @property (nonatomic, strong) NSArray<ModVersion *> *allVersions;
 @property (nonatomic, strong) NSArray<ModVersion *> *filteredVersions;
@@ -35,29 +35,32 @@
 }
 
 - (void)setupFilterControls {
-    // Game Version Filter
-    self.gameVersionSegmentedControl = [[UISegmentedControl alloc] initWithItems:@[@"加载中..."]];
-    self.gameVersionSegmentedControl.selectedSegmentIndex = 0;
-    [self.gameVersionSegmentedControl addTarget:self action:@selector(filterChanged) forControlEvents:UIControlEventValueChanged];
-    self.gameVersionSegmentedControl.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.view addSubview:self.gameVersionSegmentedControl];
+    self.gameVersionFilterButton = [self createFilterButtonWithTitle:@"游戏版本: 加载中..."];
+    self.loaderFilterButton = [self createFilterButtonWithTitle:@"加载器: 加载中..."];
 
-    // Loader Filter
-    self.loaderSegmentedControl = [[UISegmentedControl alloc] initWithItems:@[@"加载中..."]];
-    self.loaderSegmentedControl.selectedSegmentIndex = 0;
-    [self.loaderSegmentedControl addTarget:self action:@selector(filterChanged) forControlEvents:UIControlEventValueChanged];
-    self.loaderSegmentedControl.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.view addSubview:self.loaderSegmentedControl];
+    UIStackView *filterStackView = [[UIStackView alloc] initWithArrangedSubviews:@[self.gameVersionFilterButton, self.loaderFilterButton]];
+    filterStackView.translatesAutoresizingMaskIntoConstraints = NO;
+    filterStackView.axis = UILayoutConstraintAxisHorizontal;
+    filterStackView.distribution = UIStackViewDistributionFillEqually;
+    filterStackView.spacing = 8;
+
+    [self.view addSubview:filterStackView];
 
     [NSLayoutConstraint activateConstraints:@[
-        [self.gameVersionSegmentedControl.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8],
-        [self.gameVersionSegmentedControl.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:8],
-        [self.gameVersionSegmentedControl.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-8],
-
-        [self.loaderSegmentedControl.topAnchor constraintEqualToAnchor:self.gameVersionSegmentedControl.bottomAnchor constant:8],
-        [self.loaderSegmentedControl.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:8],
-        [self.loaderSegmentedControl.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-8],
+        [filterStackView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8],
+        [filterStackView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:8],
+        [filterStackView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-8],
     ]];
+}
+
+- (UIButton *)createFilterButtonWithTitle:(NSString *)title {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.translatesAutoresizingMaskIntoConstraints = NO;
+    [button setTitle:title forState:UIControlStateNormal];
+    button.layer.cornerRadius = 8;
+    button.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    button.showsMenuAsPrimaryAction = YES; // This is the key for UIMenu
+    return button;
 }
 
 - (void)setupTableView {
@@ -68,8 +71,11 @@
     [self.tableView registerClass:[ModVersionTableViewCell class] forCellReuseIdentifier:@"ModVersionCell"];
     [self.view addSubview:self.tableView];
 
+    // Find the stack view to constrain the table view against
+    UIView *filterStackView = self.gameVersionFilterButton.superview;
+
     [NSLayoutConstraint activateConstraints:@[
-        [self.tableView.topAnchor constraintEqualToAnchor:self.loaderSegmentedControl.bottomAnchor constant:8],
+        [self.tableView.topAnchor constraintEqualToAnchor:filterStackView.bottomAnchor constant:8],
         [self.tableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.tableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.tableView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
@@ -114,7 +120,7 @@
             [gameVersions addObject:gameVersion];
         }
         for (NSString *loader in version.loaders) {
-            [loaders addObject:loader];
+            [loaders addObject:[loader capitalizedString]]; // Capitalize for display
         }
     }
 
@@ -130,23 +136,49 @@
     self.selectedGameVersion = self.availableGameVersions.firstObject;
     self.selectedLoader = self.availableLoaders.firstObject;
 
-    [self.gameVersionSegmentedControl removeAllSegments];
-    for (NSString *version in self.availableGameVersions) {
-        [self.gameVersionSegmentedControl insertSegmentWithTitle:version atIndex:self.gameVersionSegmentedControl.numberOfSegments animated:NO];
-    }
-    self.gameVersionSegmentedControl.selectedSegmentIndex = 0;
+    [self updateFilterButtons];
+}
 
-    [self.loaderSegmentedControl removeAllSegments];
-    for (NSString *loader in self.availableLoaders) {
-        [self.loaderSegmentedControl insertSegmentWithTitle:loader atIndex:self.loaderSegmentedControl.numberOfSegments animated:NO];
+- (void)updateFilterButtons {
+    // Game Version Button Menu
+    NSMutableArray<UIAction *> *gameVersionActions = [NSMutableArray array];
+    for (NSString *version in self.availableGameVersions) {
+        UIAction *action = [UIAction actionWithTitle:version image:nil identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
+            self.selectedGameVersion = action.title;
+            [self filterAndReload];
+            [self updateFilterButtons]; // Update state
+        }];
+        if ([self.selectedGameVersion isEqualToString:version]) {
+            action.state = UIMenuElementStateOn;
+        }
+        [gameVersionActions addObject:action];
     }
-    self.loaderSegmentedControl.selectedSegmentIndex = 0;
+    self.gameVersionFilterButton.menu = [UIMenu menuWithTitle:@"选择游戏版本" children:gameVersionActions];
+    [self.gameVersionFilterButton setTitle:[NSString stringWithFormat:@"游戏版本: %@", self.selectedGameVersion] forState:UIControlStateNormal];
+
+    // Loader Button Menu
+    NSMutableArray<UIAction *> *loaderActions = [NSMutableArray array];
+    for (NSString *loader in self.availableLoaders) {
+        UIAction *action = [UIAction actionWithTitle:loader image:nil identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
+            self.selectedLoader = action.title;
+            [self filterAndReload];
+            [self updateFilterButtons]; // Update state
+        }];
+        if ([self.selectedLoader isEqualToString:loader]) {
+            action.state = UIMenuElementStateOn;
+        }
+        [loaderActions addObject:action];
+    }
+    self.loaderFilterButton.menu = [UIMenu menuWithTitle:@"选择加载器" children:loaderActions];
+    [self.loaderFilterButton setTitle:[NSString stringWithFormat:@"加载器: %@", self.selectedLoader] forState:UIControlStateNormal];
 }
 
 - (void)filterChanged {
-    self.selectedGameVersion = [self.gameVersionSegmentedControl titleForSegmentAtIndex:self.gameVersionSegmentedControl.selectedSegmentIndex];
-    self.selectedLoader = [self.loaderSegmentedControl titleForSegmentAtIndex:self.loaderSegmentedControl.selectedSegmentIndex];
+    // This method is now effectively a passthrough to filterAndReload
+    [self filterAndReload];
+}
 
+- (void)filterAndReload {
     NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(ModVersion *evaluatedObject, NSDictionary *bindings) {
         BOOL gameVersionMatch = [self.selectedGameVersion isEqualToString:@"全部"] || [evaluatedObject.gameVersions containsObject:self.selectedGameVersion];
         BOOL loaderMatch = [self.selectedLoader isEqualToString:@"全部"] || [evaluatedObject.loaders containsObject:self.selectedLoader.lowercaseString];

@@ -258,6 +258,55 @@
     return cell;
 }
 
+- (UISwipeActionsConfiguration *)tableView:(UITableView *)tableView trailingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (self.currentMode != ModsManagerModeLocal || self.isBatchMode) {
+        return nil; // No swipe actions in online mode or batch mode
+    }
+
+    UIContextualAction *deleteAction = [UIContextualAction contextualActionWithStyle:UIContextualActionStyleDestructive title:@"删除" handler:^(UIContextualAction * _Nonnull action, __kindof UIView * _Nonnull sourceView, void (^ _Nonnull completionHandler)(BOOL)) {
+
+        ModItem *modToDelete = self.filteredLocalMods[indexPath.row];
+
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"确认删除" message:[NSString stringWithFormat:@"确定要删除 %@ 吗？\n此操作无法撤销。", modToDelete.displayName] preferredStyle:UIAlertControllerStyleAlert];
+
+        [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+            completionHandler(NO);
+        }]];
+
+        [alert addAction:[UIAlertAction actionWithTitle:@"删除" style:UIAlertActionStyleDestructive handler:^(UIAlertAction * _Nonnull action) {
+            NSError *error = nil;
+            [[ModService sharedService] deleteMod:modToDelete error:&error];
+
+            if (error) {
+                NSLog(@"[ModsManager] Error deleting mod: %@", error);
+                // Optionally show an alert to the user
+                completionHandler(NO);
+            } else {
+                // Remove from data source
+                NSInteger indexInFullList = [self.localMods indexOfObject:modToDelete];
+                if (indexInFullList != NSNotFound) {
+                    [self.localMods removeObjectAtIndex:indexInFullList];
+                }
+                [self.filteredLocalMods removeObjectAtIndex:indexPath.row];
+
+                // Perform the table view update
+                [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
+
+                completionHandler(YES);
+            }
+        }]];
+
+        [self presentViewController:alert animated:YES completion:nil];
+    }];
+
+    deleteAction.backgroundColor = [UIColor systemRedColor];
+
+    UISwipeActionsConfiguration *configuration = [UISwipeActionsConfiguration configurationWithActions:@[deleteAction]];
+    configuration.performsFirstActionWithFullSwipe = YES; // Allow full swipe to delete
+
+    return configuration;
+}
+
 
 #pragma mark - ModTableViewCellDelegate (Download Implementation)
 
@@ -294,19 +343,42 @@
 }
 
 - (void)startDownloadForItem:(ModItem *)item {
-    [self showSimpleAlertWithTitle:@"下载开始" message:[NSString stringWithFormat:@"正在下载 %@...", item.displayName]];
+    // Show a temporary "downloading" alert
+    UIAlertController *downloadingAlert = [UIAlertController alertControllerWithTitle:@"正在下载"
+                                                                              message:[NSString stringWithFormat:@"%@...", item.displayName]
+                                                                       preferredStyle:UIAlertControllerStyleAlert];
+
+    UIActivityIndicatorView *indicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    indicator.translatesAutoresizingMaskIntoConstraints = NO;
+    [downloadingAlert.view addSubview:indicator];
+    [NSLayoutConstraint activateConstraints:@[
+        [indicator.centerXAnchor constraintEqualToAnchor:downloadingAlert.view.centerXAnchor],
+        [indicator.centerYAnchor constraintEqualToAnchor:downloadingAlert.view.centerYAnchor constant:20]
+    ]];
+    [indicator startAnimating];
+
+    [self presentViewController:downloadingAlert animated:YES completion:nil];
 
     [[ModService sharedService] downloadMod:item toProfile:self.profileName completion:^(NSError * _Nullable error) {
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (error) {
-                [self showSimpleAlertWithTitle:@"下载失败" message:error.localizedDescription];
-            } else {
-                [self showSimpleAlertWithTitle:@"下载成功" message:[NSString stringWithFormat:@"%@ 已成功安装。", item.displayName]];
-                // Optionally, switch to local mods and refresh
-                // [self.modeSwitcher setSelectedSegmentIndex:0];
-                // [self modeChanged:self.modeSwitcher];
-                // [self refreshLocalModsList];
-            }
+            // First, dismiss the "downloading" alert
+            [downloadingAlert dismissViewControllerAnimated:YES completion:^{
+                // Then, show the result alert
+                if (error) {
+                    [self showSimpleAlertWithTitle:@"下载失败" message:error.localizedDescription];
+                } else {
+                    UIAlertController *successAlert = [UIAlertController alertControllerWithTitle:@"下载成功"
+                                                                                          message:[NSString stringWithFormat:@"%@ 已成功安装。", item.displayName]
+                                                                                   preferredStyle:UIAlertControllerStyleAlert];
+                    [successAlert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+                        // After user acknowledges, switch to local mods and refresh
+                        [self.modeSwitcher setSelectedSegmentIndex:0];
+                        [self modeChanged:self.modeSwitcher];
+                        [self refreshLocalModsList];
+                    }]];
+                    [self presentViewController:successAlert animated:YES completion:nil];
+                }
+            }];
         });
     }];
 }
@@ -355,11 +427,6 @@
     [self presentViewController:alert animated:YES completion:nil];
 }
 
-- (void)modCellDidTapDelete:(UITableViewCell *)cell {
-    if (self.currentMode != ModsManagerModeLocal) return;
-    // ... (logic for single delete)
-}
-
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     if (self.currentMode == ModsManagerModeLocal && self.isBatchMode) {
         ModItem *mod = self.filteredLocalMods[indexPath.row];
@@ -375,10 +442,28 @@
     }
 }
 
-// Stub implementations for unused delegate methods to silence warnings
 - (void)modCellDidTapToggle:(UITableViewCell *)cell {
-    // Not used in this controller in local mode, but required by protocol.
+    NSIndexPath *indexPath = [self.tableView indexPathForCell:cell];
+    if (!indexPath || self.currentMode != ModsManagerModeLocal) return;
+
+    ModItem *mod = self.filteredLocalMods[indexPath.row];
+    BOOL newDisabledState = !mod.disabled;
+
+    NSError *error = nil;
+    [[ModService sharedService] setMod:mod disabled:newDisabledState error:&error];
+
+    if (error) {
+        NSLog(@"[ModsManager] Error toggling mod: %@", error);
+        // Optionally show an alert to the user
+        // Revert the switch state if the operation failed
+        [(ModTableViewCell *)cell updateToggleState:mod.disabled];
+    } else {
+        mod.disabled = newDisabledState; // Update the model
+        // Visually update the cell immediately
+        [(ModTableViewCell *)cell updateToggleState:newDisabledState];
+    }
 }
+
 - (void)modCellDidTapOpenLink:(UITableViewCell *)cell {
     // Not used in this controller, but required by protocol.
 }
