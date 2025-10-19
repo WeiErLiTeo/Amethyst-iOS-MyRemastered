@@ -148,7 +148,7 @@
     ModTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"ModCell" forIndexPath:indexPath];
     ModItem *m = self.filteredMods[indexPath.row];
     cell.delegate = self;
-    [cell configureWithMod:m];
+    [cell configureWithMod:m displayMode:ModTableViewCellDisplayModeLocal];
     // Reset batch mode state since this controller doesn't use batch mode
     [cell updateBatchSelectionState:NO batchMode:NO];
     return cell;

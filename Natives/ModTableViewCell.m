@@ -34,7 +34,14 @@
         _downloadButton = [self createButtonWithTitle:@"下载" titleColor:[UIColor systemGreenColor] action:@selector(downloadTapped)];
         _openLinkButton = [self createButtonWithImage:[UIImage systemImageNamed:@"globe"] action:@selector(openLinkTapped)];
 
+        _loaderBadgesStackView = [[UIStackView alloc] init];
+        _loaderBadgesStackView.translatesAutoresizingMaskIntoConstraints = NO;
+        _loaderBadgesStackView.axis = UILayoutConstraintAxisHorizontal;
+        _loaderBadgesStackView.spacing = 4;
+        _loaderBadgesStackView.alignment = UIStackViewAlignmentCenter;
+
         // Add subviews
+        [self.contentView addSubview:_loaderBadgesStackView];
         [self.contentView addSubview:_modIconView];
         [self.contentView addSubview:_nameLabel];
         [self.contentView addSubview:_authorLabel];
@@ -115,13 +122,6 @@
 
         [_nameLabel.leadingAnchor constraintEqualToAnchor:_modIconView.trailingAnchor constant:padding],
         [_nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor],
-
-        _loaderBadgesStackView = [[UIStackView alloc] init];
-        _loaderBadgesStackView.translatesAutoresizingMaskIntoConstraints = NO;
-        _loaderBadgesStackView.axis = UILayoutConstraintAxisHorizontal;
-        _loaderBadgesStackView.spacing = 4;
-        _loaderBadgesStackView.alignment = UIStackViewAlignmentCenter;
-        [self.contentView addSubview:_loaderBadgesStackView];
 
         [_loaderBadgesStackView.leadingAnchor constraintEqualToAnchor:_nameLabel.trailingAnchor constant:8],
         [_loaderBadgesStackView.centerYAnchor constraintEqualToAnchor:_nameLabel.centerYAnchor],
