@@ -1,4 +1,5 @@
 #import <UIKit/UIKit.h>
+#import <UIKit/UIKit.h>
 #import "ModItem.h"
 #import "ModVersion.h"
 
@@ -9,8 +10,6 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol ModVersionViewControllerDelegate <NSObject>
 - (void)modVersionViewController:(ModVersionViewController *)viewController didSelectVersion:(ModVersion *)version;
 @end
-
-#import <UIKit/UIKit.h>
 
 @interface ModVersionViewController : UIViewController
 
