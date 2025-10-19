@@ -75,7 +75,7 @@
 }
 
 - (void)getVersionsForModWithID:(NSString *)modID completion:(void (^)(NSArray<ModVersion *> * _Nullable versions, NSError * _Nullable error))completion {
-    NSString *urlString = [NSString stringWithFormat:@"%@/project/%@/version", self.apiBaseURL, modID];
+    NSString *urlString = [NSString stringWithFormat:@"%@/project/%@/version", self.baseURL, modID];
     NSURL *url = [NSURL URLWithString:urlString];
 
     if (!url) {
