@@ -1,6 +1,7 @@
 #import "ModTableViewCell.h"
 #import "ModItem.h"
 #import "ModService.h"
+#import "MarqueeLabel.h"
 #import <QuartzCore/QuartzCore.h>
 
 #pragma clang diagnostic push
@@ -24,7 +25,9 @@
         _modIconView = [self createImageViewWithCornerRadius:4];
 
         // Replace UILabels with MarqueeLabels for scrolling long text
-        _nameLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero rate:60.0 andFadeLength:10.0];
+        _nameLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
+        _nameLabel.rate = 60.0;
+        _nameLabel.fadeLength = 10.0;
         _nameLabel.marqueeType = MLContinuous;
         _nameLabel.font = [UIFont boldSystemFontOfSize:13];
         _nameLabel.textColor = [UIColor labelColor];
@@ -32,7 +35,9 @@
 
         _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:9] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
 
-        _descLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero rate:50.0 andFadeLength:10.0];
+        _descLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
+        _descLabel.rate = 50.0;
+        _descLabel.fadeLength = 10.0;
         _descLabel.marqueeType = MLContinuous;
         _descLabel.numberOfLines = 1;
         _descLabel.font = [UIFont systemFontOfSize:9];
@@ -139,7 +144,7 @@
         [_modIconView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:padding],
         [_modIconView.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
         [_modIconView.widthAnchor constraintEqualToConstant:iconSize],
-        [_modIconView.heightAnchor constraintEqualToConstant:iconСизе],
+        [_modIconView.heightAnchor constraintEqualToConstant:iconSize],
 
         [_nameLabel.leadingAnchor constraintEqualToAnchor:_modIconView.trailingAnchor constant:8],
         [_nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor],
@@ -179,6 +184,7 @@
     [_loaderBadgesStackView.heightAnchor constraintEqualToConstant:12],
     [_loaderBadgesStackView.leadingAnchor constraintGreaterThanOrEqualToAnchor:_nameLabel.trailingAnchor constant:4],
     [_loaderBadgesStackView.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-4],
+    ]];
 }
 
 #pragma mark - Configuration
