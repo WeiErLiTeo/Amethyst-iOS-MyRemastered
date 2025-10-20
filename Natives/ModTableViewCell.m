@@ -184,50 +184,6 @@
     ]];
 }
 
-- (void)layoutSubviews {
-    [super layoutSubviews];
-    [self setupScrollingAnimationForLabel:_nameLabel];
-    // We can optionally apply the same logic to _descLabel if needed
-    // [self setupScrollingAnimationForLabel:_descLabel];
-}
-
-- (void)setupScrollingAnimationForLabel:(UILabel *)label {
-    // Remove any existing animation first
-    [label.layer removeAllAnimations];
-
-    // Determine if the text is wider than the label's frame
-    CGSize textSize = [label.text sizeWithAttributes:@{NSFontAttributeName: label.font}];
-    if (textSize.width <= label.bounds.size.width) {
-        label.transform = CGAffineTransformIdentity; // Ensure it's not scrolled
-        return; // No need to scroll
-    }
-
-    // Animation setup
-    CGFloat scrollDistance = textSize.width + label.bounds.size.width; // scroll fully off screen
-    CGFloat duration = scrollDistance / 40.0; // Adjust 40.0 to control speed
-
-    // --- Create Animation Group for seamless looping ---
-
-    // 1. Animation that scrolls the text from right to left
-    CABasicAnimation *scrollAnimation = [CABasicAnimation animationWithKeyPath:@"transform.translation.x"];
-    scrollAnimation.fromValue = @(label.bounds.size.width);
-    scrollAnimation.toValue = @(-textSize.width);
-    scrollAnimation.duration = duration;
-
-    // 2. Animation group to repeat the scroll
-    CAAnimationGroup *animationGroup = [CAAnimationGroup animation];
-    animationGroup.animations = @[scrollAnimation];
-    animationGroup.duration = duration;
-    animationGroup.repeatCount = HUGE_VALF;
-    animationGroup.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
-
-    // Add a delay before the animation starts for the first time
-    animationGroup.beginTime = CACurrentMediaTime() + 2.0;
-
-    [label.layer addAnimation:animationGroup forKey:@"scrollAnimation"];
-}
-
-
 #pragma mark - Configuration
 
 - (void)configureWithMod:(ModItem *)mod displayMode:(ModTableViewCellDisplayMode)mode {
@@ -238,9 +194,12 @@
 
     if (mod.icon) {
         _modIconView.image = mod.icon;
-    } else if (mod.iconURL) {
+    } else if (mod.iconURL && [mod.iconURL isKindOfClass:[NSString class]] && [mod.iconURL hasPrefix:@"https://"]) {
         [_modIconView setImageWithURL:[NSURL URLWithString:mod.iconURL] placeholderImage:[UIImage systemImageNamed:@"puzzlepiece.extension"]];
     } else {
+        if (mod.iconURL.length > 0) {
+            NSLog(@"[ModTableViewCell] Invalid or missing icon URL for mod '%@': %@", mod.displayName, mod.iconURL);
+        }
         _modIconView.image = [UIImage systemImageNamed:@"puzzlepiece.extension"];
     }
 
