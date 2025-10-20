@@ -69,7 +69,7 @@ IB_DESIGNABLE
 - (BOOL)isLabelReadyForScroll;
 
 // UILabel Features
-@property (MARQUEE_LABEL_NONNULL_PROPERTY, nonatomic, strong) NSString *text;
+@property (MARQUEE_LABEL_NONNULL_PROPERTY, nonatomic, copy) NSString *text;
 @property (MARQUEE_LABEL_NONNULL_PROPERTY, nonatomic, strong) UIFont *font;
 @property (MARQUEE_LABEL_NONNULL_PROPERTY, nonatomic, strong) UIColor *textColor;
 

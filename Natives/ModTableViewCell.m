@@ -156,34 +156,28 @@
         [_authorLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:1],
         [_statsLabel.leadingAnchor constraintEqualToAnchor:_authorLabel.trailingAnchor constant:4],
         [_statsLabel.centerYAnchor constraintEqualToAnchor:_authorLabel.centerYAnchor],
-    ]];
 
-    // --- Right-aligned Action Buttons (Side-by-side) ---
-    // The rightmost button (_enableSwitch OR _downloadButton) is anchored to the trailing edge.
-    [_downloadButton.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
-    [_downloadButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
-    [_enableSwitch.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
-    [_enableSwitch.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+        // --- Right-aligned Action Buttons (Side-by-side) ---
+        [_downloadButton.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        [_downloadButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+        [_enableSwitch.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        [_enableSwitch.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
 
-    // The info button (_openLinkButton) is anchored to the LEADING edge of the rightmost button area.
-    // We use the switch as the anchor since it occupies the same space as the download button.
-    [_openLinkButton.trailingAnchor constraintEqualToAnchor:_enableSwitch.leadingAnchor constant:-4],
-    [_openLinkButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
-    [_openLinkButton.widthAnchor constraintEqualToConstant:28], // Give it a fixed width
-    [_openLinkButton.heightAnchor constraintEqualToConstant:28], // Give it a fixed height
+        [_openLinkButton.trailingAnchor constraintEqualToAnchor:_enableSwitch.leadingAnchor constant:-4],
+        [_openLinkButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+        [_openLinkButton.widthAnchor constraintEqualToConstant:28],
+        [_openLinkButton.heightAnchor constraintEqualToConstant:28],
 
-    // --- Text Content Trailing Constraints (CRITICAL for fixing button taps) ---
-    // All text labels must end before the info button begins.
-    [_nameLabel.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
-    [_descLabel.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
-    [_statsLabel.trailingAnchor constraintLessThanOrEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
+        // --- Text Content Trailing Constraints ---
+        [_nameLabel.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
+        [_descLabel.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
+        [_statsLabel.trailingAnchor constraintLessThanOrEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
 
-    // --- Loader Badges ---
-    // Badges are positioned between the name label and the info button.
-    [_loaderBadgesStackView.centerYAnchor constraintEqualToAnchor:_nameLabel.centerYAnchor],
-    [_loaderBadgesStackView.heightAnchor constraintEqualToConstant:12],
-    [_loaderBadgesStackView.leadingAnchor constraintGreaterThanOrEqualToAnchor:_nameLabel.trailingAnchor constant:4],
-    [_loaderBadgesStackView.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-4],
+        // --- Loader Badges ---
+        [_loaderBadgesStackView.centerYAnchor constraintEqualToAnchor:_nameLabel.centerYAnchor],
+        [_loaderBadgesStackView.heightAnchor constraintEqualToConstant:12],
+        [_loaderBadgesStackView.leadingAnchor constraintGreaterThanOrEqualToAnchor:_nameLabel.trailingAnchor constant:4],
+        [_loaderBadgesStackView.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-4],
     ]];
 }
 
