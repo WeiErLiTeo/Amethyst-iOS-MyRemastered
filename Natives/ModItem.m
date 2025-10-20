@@ -65,20 +65,8 @@
         }
 
         // Handle dates and categories
-        id lastUpdatedValue = data[@"lastUpdated"];
-        if (lastUpdatedValue && [lastUpdatedValue isKindOfClass:[NSString class]]) {
-            _lastUpdated = lastUpdatedValue;
-        } else if (lastUpdatedValue && [lastUpdatedValue isKindOfClass:[NSDate class]]) {
-            // If the API ever sends a real date object, format it.
-             _lastUpdated = [NSISO8601DateFormatter stringFromDate:(NSDate *)lastUpdatedValue
-                                                          timeZone:[NSTimeZone timeZoneForSecondsFromGMT:0]
-                                                            formatOptions:NSISO8601DateFormatWithInternetDateTime];
-        }
-        else {
-            _lastUpdated = @""; // Fallback to empty string
-        }
-        _categories = (data[@"categories"] && [data[@"categories"] isKindOfClass:[NSArray class]]) ? data[@"categories"] : @[];
-
+        _lastUpdated = data[@"lastUpdated"] ?: @"";
+        _categories = data[@"categories"] ?: @[];
 
         // These will be nil until a version is selected for download
         _filePath = nil;

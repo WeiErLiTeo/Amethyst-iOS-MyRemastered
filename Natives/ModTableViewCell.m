@@ -1,7 +1,6 @@
 #import "ModTableViewCell.h"
 #import "ModItem.h"
 #import "ModService.h"
-#import "MarqueeLabel.h"
 #import <QuartzCore/QuartzCore.h>
 
 #pragma clang diagnostic push
@@ -24,28 +23,15 @@
         // --- Initialization of UI Elements ---
         _modIconView = [self createImageViewWithCornerRadius:4];
 
-        // Name Label (Marquee)
-        _nameLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
-        _nameLabel.rate = 60.0;
-        _nameLabel.fadeLength = 10.0;
-        _nameLabel.marqueeType = MLContinuous;
-        _nameLabel.animationDelay = 2.0;
-        _nameLabel.font = [UIFont boldSystemFontOfSize:15];
-        _nameLabel.textColor = [UIColor labelColor];
-        _nameLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        // Name Label
+        _nameLabel = [self createLabelWithFont:[UIFont boldSystemFontOfSize:15] textColor:[UIColor labelColor] numberOfLines:1];
+        _nameLabel.clipsToBounds = YES; // Important for scrolling animation
 
         _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:11] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
 
-        // Description Label (Marquee)
-        _descLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
-        _descLabel.rate = 50.0;
-        _descLabel.fadeLength = 10.0;
-        _descLabel.marqueeType = MLContinuous;
-        _descLabel.animationDelay = 2.0;
-        _descLabel.numberOfLines = 2; // Still allow up to 2 lines, marquee will apply if needed on a single long line
-        _descLabel.font = [UIFont systemFontOfSize:11];
-        _descLabel.textColor = [UIColor grayColor];
-        _descLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        // Description Label
+        _descLabel = [self createLabelWithFont:[UIFont systemFontOfSize:11] textColor:[UIColor grayColor] numberOfLines:2];
+        _descLabel.clipsToBounds = YES;
 
         _statsLabel = [self createLabelWithFont:[UIFont systemFontOfSize:11] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
         _categoryLabel = [self createLabelWithFont:[UIFont systemFontOfSize:11] textColor:[UIColor systemBlueColor] numberOfLines:1];
@@ -197,6 +183,50 @@
         [_loaderBadgesStackView.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-8],
     ]];
 }
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    [self setupScrollingAnimationForLabel:_nameLabel];
+    // We can optionally apply the same logic to _descLabel if needed
+    // [self setupScrollingAnimationForLabel:_descLabel];
+}
+
+- (void)setupScrollingAnimationForLabel:(UILabel *)label {
+    // Remove any existing animation first
+    [label.layer removeAllAnimations];
+
+    // Determine if the text is wider than the label's frame
+    CGSize textSize = [label.text sizeWithAttributes:@{NSFontAttributeName: label.font}];
+    if (textSize.width <= label.bounds.size.width) {
+        label.transform = CGAffineTransformIdentity; // Ensure it's not scrolled
+        return; // No need to scroll
+    }
+
+    // Animation setup
+    CGFloat scrollDistance = textSize.width + label.bounds.size.width; // scroll fully off screen
+    CGFloat duration = scrollDistance / 40.0; // Adjust 40.0 to control speed
+
+    // --- Create Animation Group for seamless looping ---
+
+    // 1. Animation that scrolls the text from right to left
+    CABasicAnimation *scrollAnimation = [CABasicAnimation animationWithKeyPath:@"transform.translation.x"];
+    scrollAnimation.fromValue = @(label.bounds.size.width);
+    scrollAnimation.toValue = @(-textSize.width);
+    scrollAnimation.duration = duration;
+
+    // 2. Animation group to repeat the scroll
+    CAAnimationGroup *animationGroup = [CAAnimationGroup animation];
+    animationGroup.animations = @[scrollAnimation];
+    animationGroup.duration = duration;
+    animationGroup.repeatCount = HUGE_VALF;
+    animationGroup.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
+
+    // Add a delay before the animation starts for the first time
+    animationGroup.beginTime = CACurrentMediaTime() + 2.0;
+
+    [label.layer addAnimation:animationGroup forKey:@"scrollAnimation"];
+}
+
 
 #pragma mark - Configuration
 
