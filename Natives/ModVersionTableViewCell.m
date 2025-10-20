@@ -73,28 +73,14 @@
     ]];
 }
 
-+ (NSDateFormatter *)displayFormatter {
-+    static NSDateFormatter *formatter;
-+    static dispatch_once_t onceToken;
-+    dispatch_once(&onceToken, ^{
-+        formatter = [[NSDateFormatter alloc] init];
-+        formatter.dateStyle = NSDateFormatterShortStyle;
-+        formatter.timeStyle = NSDateFormatterNoStyle;
-+    });
-+    return formatter;
-+}
-+
-+- (void)configureWithVersion:(ModVersion *)version {
-+    self.nameLabel.text = version.name;
-+    self.versionNumberLabel.text = version.versionNumber;
-+
-+    if (version.datePublished && ![version.datePublished isEqualToDate:[NSDate distantPast]]) {
-+        self.datePublishedLabel.text = [[self.class displayFormatter] stringFromDate:version.datePublished];
-+    } else {
-+        self.datePublishedLabel.text = @"未知日期";
-+    }
-+
-+    if (version.primaryFile) {
+- (void)configureWithVersion:(ModVersion *)version {
+    self.nameLabel.text = version.name;
+    self.versionNumberLabel.text = version.versionNumber;
+
+    // Per user instruction, prioritize stability over displaying the date.
+    self.datePublishedLabel.text = @"--";
+
+    if (version.primaryFile) {
         self.fileSizeLabel.text = [NSByteCountFormatter stringFromByteCount:[version.primaryFile[@"size"] longValue] countStyle:NSByteCountFormatterCountStyleFile];
     } else {
         self.fileSizeLabel.text = @"未知大小";
