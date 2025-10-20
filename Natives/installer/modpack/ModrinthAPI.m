@@ -131,15 +131,10 @@
 
         NSMutableArray<ModVersion *> *versions = [NSMutableArray array];
         for (NSDictionary *versionDict in jsonResult) {
-            @try {
-                if ([versionDict isKindOfClass:[NSDictionary class]]) {
-                    ModVersion *version = [[ModVersion alloc] initWithDictionary:versionDict];
-                    if (version) {
-                        [versions addObject:version];
-                    }
-                }
-            } @catch (NSException *exception) {
-                NSLog(@"[ModrinthAPI] Failed to parse a version dictionary, skipping. Reason: %@, Dict: %@", exception.reason, versionDict);
+            // The robust initializer in ModVersion now handles any potential errors.
+            ModVersion *version = [[ModVersion alloc] initWithDictionary:versionDict];
+            if (version) {
+                [versions addObject:version];
             }
         }
 

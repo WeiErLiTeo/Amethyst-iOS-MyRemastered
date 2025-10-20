@@ -22,31 +22,29 @@
 
 - (instancetype)initWithOnlineData:(NSDictionary *)data {
     if (self = [super init]) {
-        // --- Robustly extract 'onlineID' ---
-        id slug = data[@"slug"];
-        id projectId = data[@"project_id"];
-        if (slug && [slug isKindOfClass:[NSString class]] && ((NSString *)slug).length > 0) {
-            _onlineID = slug;
-        } else if (projectId && [projectId respondsToSelector:@selector(description)]) {
-            _onlineID = [projectId description];
-        } else {
-            _onlineID = @""; // Fallback to empty string
+        @try {
+            // --- Robustly extract 'onlineID' ---
+            id slug = data[@"slug"];
+            id projectId = data[@"project_id"];
+            if (slug && [slug isKindOfClass:[NSString class]] && ((NSString *)slug).length > 0) {
+                _onlineID = slug;
+            } else if (projectId && [projectId respondsToSelector:@selector(description)]) {
+                _onlineID = [projectId description];
+            } else {
+                _onlineID = @""; // Fallback to empty string
+            }
+
+            _displayName = (data[@"title"] && [data[@"title"] isKindOfClass:[NSString class]]) ? data[@"title"] : @"";
+
+            // --- Robustly extract 'modDescription' ---
+            // The search result uses 'description' for the short summary.
+            _modDescription = (data[@"description"] && [data[@"description"] isKindOfClass:[NSString class]]) ? data[@"description"] : @"";
+
+            _iconURL = (data[@"icon_url"] && [data[@"icon_url"] isKindOfClass:[NSString class]]) ? data[@"icon_url"] : @"";
+        } @catch (NSException *exception) {
+            NSLog(@"[ModItem] Failed to initialize from online data. Reason: %@, Data: %@", exception.reason, data);
+            return nil;
         }
-
-        _displayName = (data[@"title"] && [data[@"title"] isKindOfClass:[NSString class]]) ? data[@"title"] : @"";
-
-        // --- Robustly extract 'modDescription' ---
-        id summary = data[@"summary"];
-        id description = data[@"description"];
-        if (summary && [summary isKindOfClass:[NSString class]] && ((NSString *)summary).length > 0) {
-            _modDescription = summary;
-        } else if (description && [description isKindOfClass:[NSString class]]) {
-            _modDescription = description;
-        } else {
-            _modDescription = @""; // Fallback to empty string
-        }
-
-        _iconURL = (data[@"icon_url"] && [data[@"icon_url"] isKindOfClass:[NSString class]]) ? data[@"icon_url"] : @"";
         _author = (data[@"author"] && [data[@"author"] isKindOfClass:[NSString class]]) ? data[@"author"] : @"";
 
         // Ensure numbers are handled correctly

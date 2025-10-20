@@ -73,23 +73,28 @@
     ]];
 }
 
-- (void)configureWithVersion:(ModVersion *)version {
-    self.nameLabel.text = version.name;
-    self.versionNumberLabel.text = version.versionNumber;
-
-    NSISO8601DateFormatter *dateFormatter = [[NSISO8601DateFormatter alloc] init];
-    dateFormatter.formatOptions = NSISO8601DateFormatWithInternetDateTime | NSISO8601DateFormatWithFractionalSeconds;
-    NSDate *date = [dateFormatter dateFromString:version.datePublished];
-    if (date) {
-        NSDateFormatter *displayFormatter = [[NSDateFormatter alloc] init];
-        displayFormatter.dateStyle = NSDateFormatterShortStyle;
-        displayFormatter.timeStyle = NSDateFormatterNoStyle;
-        self.datePublishedLabel.text = [displayFormatter stringFromDate:date];
-    } else {
-        self.datePublishedLabel.text = @"未知日期";
-    }
-
-    if (version.primaryFile) {
++ (NSDateFormatter *)displayFormatter {
++    static NSDateFormatter *formatter;
++    static dispatch_once_t onceToken;
++    dispatch_once(&onceToken, ^{
++        formatter = [[NSDateFormatter alloc] init];
++        formatter.dateStyle = NSDateFormatterShortStyle;
++        formatter.timeStyle = NSDateFormatterNoStyle;
++    });
++    return formatter;
++}
++
++- (void)configureWithVersion:(ModVersion *)version {
++    self.nameLabel.text = version.name;
++    self.versionNumberLabel.text = version.versionNumber;
++
++    if (version.datePublished && ![version.datePublished isEqualToDate:[NSDate distantPast]]) {
++        self.datePublishedLabel.text = [[self.class displayFormatter] stringFromDate:version.datePublished];
++    } else {
++        self.datePublishedLabel.text = @"未知日期";
++    }
++
++    if (version.primaryFile) {
         self.fileSizeLabel.text = [NSByteCountFormatter stringFromByteCount:[version.primaryFile[@"size"] longValue] countStyle:NSByteCountFormatterCountStyleFile];
     } else {
         self.fileSizeLabel.text = @"未知大小";

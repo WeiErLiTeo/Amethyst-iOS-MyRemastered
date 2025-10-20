@@ -194,12 +194,10 @@
 
     if (mod.icon) {
         _modIconView.image = mod.icon;
-    } else if (mod.iconURL && [mod.iconURL isKindOfClass:[NSString class]] && [mod.iconURL hasPrefix:@"https://"]) {
+    } else if (mod.iconURL.length > 0) {
+        // Thanks to the robust ModItem initializer, we can trust iconURL is a valid string.
         [_modIconView setImageWithURL:[NSURL URLWithString:mod.iconURL] placeholderImage:[UIImage systemImageNamed:@"puzzlepiece.extension"]];
     } else {
-        if (mod.iconURL.length > 0) {
-            NSLog(@"[ModTableViewCell] Invalid or missing icon URL for mod '%@': %@", mod.displayName, mod.iconURL);
-        }
         _modIconView.image = [UIImage systemImageNamed:@"puzzlepiece.extension"];
     }
 
