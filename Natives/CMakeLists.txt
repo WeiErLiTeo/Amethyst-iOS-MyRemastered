@@ -179,6 +179,7 @@ add_executable(AngelAuraAmethyst
   utils.m
 
   # Mod-related sources (ensure implementations are compiled and linked)
+  MarqueeLabel.m
   ModItem.m
   ModService.m
   ModTableViewCell.m
