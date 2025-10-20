@@ -1,6 +1,5 @@
 #import <UIKit/UIKit.h>
 @class ModItem;
-@class MarqueeLabel;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -11,9 +10,9 @@ typedef NS_ENUM(NSInteger, ModTableViewCellDisplayMode) {
 };
 
 @protocol ModTableViewCellDelegate <NSObject>
-@optional
 - (void)modCellDidTapToggle:(UITableViewCell *)cell;
-- (void)modCellDidTapInfoButton:(UITableViewCell *)cell;
+- (void)modCellDidTapOpenLink:(UITableViewCell *)cell;
+@optional // Optional because it's only for online mode
 - (void)modCellDidTapDownload:(UITableViewCell *)cell;
 @end
 
@@ -21,9 +20,9 @@ typedef NS_ENUM(NSInteger, ModTableViewCellDisplayMode) {
 
 // --- UI Elements ---
 @property (nonatomic, strong) UIImageView *modIconView;
-@property (nonatomic, strong) MarqueeLabel *nameLabel;
+@property (nonatomic, strong) UILabel *nameLabel;
 @property (nonatomic, strong) UILabel *authorLabel; // For online author
-@property (nonatomic, strong) MarqueeLabel *descLabel;
+@property (nonatomic, strong) UILabel *descLabel;
 @property (nonatomic, strong) UILabel *statsLabel; // For downloads, likes, etc.
 @property (nonatomic, strong) UILabel *categoryLabel; // For categories
 @property (nonatomic, strong) UIStackView *loaderBadgesStackView; // Container for loader icons

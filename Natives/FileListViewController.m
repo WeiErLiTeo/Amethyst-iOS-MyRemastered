@@ -1,6 +1,4 @@
 #import "FileListViewController.h"
-#import "FileTableViewCell.h"
-#import "MarqueeLabel.h"
 
 @interface FileListViewController () {
 }
@@ -33,8 +31,6 @@
     }
 
     [self.tableView setSeparatorStyle:UITableViewCellSeparatorStyleSingleLine];
-    // Register the custom cell class
-    [self.tableView registerClass:[FileTableViewCell class] forCellReuseIdentifier:@"FileCell"];
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
@@ -44,11 +40,13 @@
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    FileTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"FileCell" forIndexPath:indexPath];
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"cell"];
 
-    // Configure the cell with the filename
-    cell.nameLabel.text = [self.fileList objectAtIndex:indexPath.row];
+    if (cell == nil) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"cell"];
+    }
 
+    cell.textLabel.text = [self.fileList objectAtIndex:indexPath.row];
     return cell;
 }
 

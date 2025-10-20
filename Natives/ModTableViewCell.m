@@ -1,7 +1,6 @@
 #import "ModTableViewCell.h"
 #import "ModItem.h"
 #import "ModService.h"
-#import "MarqueeLabel.h"
 #import <QuartzCore/QuartzCore.h>
 
 #pragma clang diagnostic push
@@ -22,46 +21,23 @@
         self.contentView.backgroundColor = [UIColor systemBackgroundColor];
 
         // --- Initialization of UI Elements ---
-        _modIconView = [self createImageViewWithCornerRadius:4];
-
-        // Name Label (Marquee)
-        _nameLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
-        _nameLabel.rate = 60.0;
-        _nameLabel.fadeLength = 10.0;
-        _nameLabel.marqueeType = MLContinuous;
-        _nameLabel.animationDelay = 2.0;
-        _nameLabel.font = [UIFont boldSystemFontOfSize:14];
-        _nameLabel.textColor = [UIColor labelColor];
-        _nameLabel.translatesAutoresizingMaskIntoConstraints = NO;
-
-        _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:10] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
-
-        // Description Label (Marquee)
-        _descLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
-        _descLabel.rate = 50.0;
-        _descLabel.fadeLength = 10.0;
-        _descLabel.marqueeType = MLContinuous;
-        _descLabel.animationDelay = 2.0;
-        _descLabel.numberOfLines = 1; // Marquee will handle long text
-        _descLabel.font = [UIFont systemFontOfSize:10];
-        _descLabel.textColor = [UIColor grayColor];
-        _descLabel.translatesAutoresizingMaskIntoConstraints = NO;
-
-        _statsLabel = [self createLabelWithFont:[UIFont systemFontOfSize:10] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
-        _categoryLabel = [self createLabelWithFont:[UIFont systemFontOfSize:10] textColor:[UIColor systemBlueColor] numberOfLines:1];
+        _modIconView = [self createImageViewWithCornerRadius:8];
+        _nameLabel = [self createLabelWithFont:[UIFont boldSystemFontOfSize:17] textColor:[UIColor labelColor] numberOfLines:1];
+        _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:13] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
+        _descLabel = [self createLabelWithFont:[UIFont systemFontOfSize:14] textColor:[UIColor grayColor] numberOfLines:2];
+        _statsLabel = [self createLabelWithFont:[UIFont systemFontOfSize:13] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
+        _categoryLabel = [self createLabelWithFont:[UIFont systemFontOfSize:13] textColor:[UIColor systemBlueColor] numberOfLines:1];
 
         _enableSwitch = [[UISwitch alloc] init];
-        _enableSwitch.transform = CGAffineTransformMakeScale(0.75, 0.75); // Scale down the switch
         _enableSwitch.translatesAutoresizingMaskIntoConstraints = NO;
         [_enableSwitch addTarget:self action:@selector(toggleTapped) forControlEvents:UIControlEventValueChanged];
 
         _downloadButton = [self createButtonWithTitle:@"下载" titleColor:[UIColor whiteColor] action:@selector(downloadTapped)];
-        _downloadButton.backgroundColor = [UIColor systemBlueColor];
-        _downloadButton.layer.cornerRadius = 12;
-        _downloadButton.titleLabel.font = [UIFont boldSystemFontOfSize:12];
-        _downloadButton.contentEdgeInsets = UIEdgeInsetsMake(5, 10, 5, 10);
+        _downloadButton.backgroundColor = [UIColor systemGreenColor];
+        _downloadButton.layer.cornerRadius = 15;
+        _downloadButton.contentEdgeInsets = UIEdgeInsetsMake(8, 15, 8, 15);
 
-        _openLinkButton = [self createButtonWithImage:[UIImage systemImageNamed:@"info.circle"] action:@selector(openLinkTapped)];
+        _openLinkButton = [self createButtonWithImage:[UIImage systemImageNamed:@"globe"] action:@selector(openLinkTapped)];
 
         _loaderBadgesStackView = [[UIStackView alloc] init];
         _loaderBadgesStackView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -127,9 +103,6 @@
 - (UIButton *)createButtonWithImage:(UIImage *)image action:(SEL)action {
     UIButton *button = [self createButtonWithAction:action];
     [button setImage:image forState:UIControlStateNormal];
-    if (@available(iOS 14.0, *)) {
-        button.showsMenuAsPrimaryAction = YES;
-    }
     return button;
 }
 
@@ -142,8 +115,8 @@
 #pragma mark - Auto Layout Constraints
 
 - (void)setupConstraints {
-    CGFloat padding = 8.0;
-    CGFloat iconSize = 44.0;
+    CGFloat padding = 15.0;
+    CGFloat iconSize = 68.0;
 
     // --- Common Constraints ---
     [NSLayoutConstraint activateConstraints:@[
@@ -152,32 +125,26 @@
         [_modIconView.widthAnchor constraintEqualToConstant:iconSize],
         [_modIconView.heightAnchor constraintEqualToConstant:iconSize],
 
-        [_nameLabel.leadingAnchor constraintEqualToAnchor:_modIconView.trailingAnchor constant:padding],
-        [_nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor],
+        [_nameLabel.leadingAnchor constraintEqualToAnchor:_modIconView.trailingAnchor constant:10],
+        [_nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor constant:-2],
 
-        [_loaderBadgesStackView.leadingAnchor constraintEqualToAnchor:_nameLabel.trailingAnchor constant:4],
+        [_loaderBadgesStackView.leadingAnchor constraintEqualToAnchor:_nameLabel.trailingAnchor constant:8],
         [_loaderBadgesStackView.centerYAnchor constraintEqualToAnchor:_nameLabel.centerYAnchor],
-        [_loaderBadgesStackView.heightAnchor constraintEqualToConstant:14],
+        [_loaderBadgesStackView.heightAnchor constraintEqualToConstant:20],
 
         [_descLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
-        [_descLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:2],
+        [_descLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        [_descLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:5],
 
         // Make sure the cell's height is determined by its content
         [_descLabel.bottomAnchor constraintLessThanOrEqualToAnchor:self.contentView.bottomAnchor constant:-padding],
         [_modIconView.bottomAnchor constraintLessThanOrEqualToAnchor:self.contentView.bottomAnchor constant:-padding],
     ]];
 
-    // --- Right-aligned Buttons Constraints ---
+    // --- Local Mode Constraints ---
     [NSLayoutConstraint activateConstraints:@[
-        // Enable switch is on the far right
-        [_enableSwitch.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-(padding + 4)], // Add a bit more padding
         [_enableSwitch.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
-
-        // Info button is to the left of the enable switch
-        [_openLinkButton.trailingAnchor constraintEqualToAnchor:_enableSwitch.leadingAnchor constant:-4],
-        [_openLinkButton.centerYAnchor constraintEqualToAnchor:_enableSwitch.centerYAnchor],
-        [_openLinkButton.widthAnchor constraintEqualToConstant:28],
-        [_openLinkButton.heightAnchor constraintEqualToConstant:28],
+        [_enableSwitch.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
     ]];
 
     // --- Online Mode Constraints ---
@@ -191,18 +158,10 @@
         [_downloadButton.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
         [_downloadButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
 
-        // --- Text Labels Constraints ---
-        // Ensure name and description labels do not overlap the right-side buttons.
-        // Both labels should end just before the info button begins.
-        [_nameLabel.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
-        [_descLabel.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
-
-        // The loader badges should be positioned between the name label and the info button,
-        // but without driving the width of the name label.
-        // We use greaterThanOrEqual to ensure it has space, but lessThanOrEqual on the other
-        // side to allow it to shrink or disappear without breaking constraints.
-        [_loaderBadgesStackView.leadingAnchor constraintGreaterThanOrEqualToAnchor:_nameLabel.trailingAnchor constant:4],
-        [_loaderBadgesStackView.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
+        // Ensure name label doesn't overlap with badges or buttons
+        [_nameLabel.trailingAnchor constraintLessThanOrEqualToAnchor:_loaderBadgesStackView.leadingAnchor constant:-8],
+        [_loaderBadgesStackView.trailingAnchor constraintLessThanOrEqualToAnchor:_enableSwitch.leadingAnchor constant:-padding],
+        [_loaderBadgesStackView.trailingAnchor constraintLessThanOrEqualToAnchor:_downloadButton.leadingAnchor constant:-padding],
     ]];
 }
 
@@ -235,9 +194,9 @@
     _statsLabel.hidden = YES;
     _categoryLabel.hidden = YES;
     _downloadButton.hidden = YES;
+    _openLinkButton.hidden = YES;
 
     // Show local elements
-    _openLinkButton.hidden = NO; // Ensure it's visible
     _enableSwitch.hidden = NO;
     _loaderBadgesStackView.hidden = NO;
 
@@ -313,8 +272,8 @@
 }
 
 - (void)openLinkTapped {
-    if ([self.delegate respondsToSelector:@selector(modCellDidTapInfoButton:)]) {
-        [self.delegate modCellDidTapInfoButton:self];
+    if ([self.delegate respondsToSelector:@selector(modCellDidTapOpenLink:)]) {
+        [self.delegate modCellDidTapOpenLink:self];
     }
 }
 

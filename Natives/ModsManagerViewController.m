@@ -3,7 +3,6 @@
 #import "ModService.h"
 #import "ModItem.h"
 #import "installer/modpack/ModrinthAPI.h"
-#import "utils.h" // For getPrefObject
 
 @interface ModsManagerViewController () <UITableViewDataSource, UITableViewDelegate, ModTableViewCellDelegate, UISearchBarDelegate, ModVersionViewControllerDelegate>
 
@@ -36,22 +35,6 @@
     self.selectedModPaths = [NSMutableSet set];
     [self setupUI];
     [self refreshLocalModsList];
-
-    // Listen for settings changes
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(updateNavigationButtons)
-                                                 name:@"ModSettingsChanged"
-                                               object:nil];
-}
-
-- (void)viewWillAppear:(BOOL)animated {
-    [super viewWillAppear:animated];
-    // Update buttons in case settings changed while away
-    [self updateNavigationButtons];
-}
-
-- (void)dealloc {
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 - (void)setupUI {
@@ -70,7 +53,7 @@
     [self.tableView registerClass:[ModTableViewCell class] forCellReuseIdentifier:@"ModCell"];
     self.tableView.dataSource = self;
     self.tableView.delegate = self;
-    self.tableView.rowHeight = 76;
+    self.tableView.rowHeight = 100;
     self.tableView.tableFooterView = [UIView new];
     [self.view addSubview:self.tableView];
     UIRefreshControl *rc = [UIRefreshControl new];
@@ -135,29 +118,14 @@
 
 - (void)updateNavigationButtons {
     if (self.currentMode == ModsManagerModeLocal) {
-        NSMutableArray<UIBarButtonItem *> *rightBarButtonItems = [NSMutableArray array];
-
-        // Read settings. Default to YES if setting is nil.
-        BOOL batchEnabled = [getPrefObject(@"mod_management.enable_batch_management") boolValue] ?: YES;
-        BOOL refreshEnabled = [getPrefObject(@"mod_management.enable_refresh_button") boolValue] ?: YES;
-
         if (self.isBatchMode) {
-            if (batchEnabled) {
-                UIBarButtonItem *cancelButton = [[UIBarButtonItem alloc] initWithTitle:@"取消" style:UIBarButtonItemStyleDone target:self action:@selector(toggleBatchMode)];
-                [rightBarButtonItems addObject:cancelButton];
-            }
+            self.batchButton = [[UIBarButtonItem alloc] initWithTitle:@"取消" style:UIBarButtonItemStyleDone target:self action:@selector(toggleBatchMode)];
             UIBarButtonItem *deleteButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemTrash target:self action:@selector(deleteSelectedMods)];
-            [rightBarButtonItems addObject:deleteButton];
+            self.navigationItem.rightBarButtonItems = @[self.batchButton, deleteButton];
         } else {
-            if (refreshEnabled) {
-                [rightBarButtonItems addObject:self.refreshButton];
-            }
-            if (batchEnabled) {
-                self.batchButton = [[UIBarButtonItem alloc] initWithTitle:@"批量" style:UIBarButtonItemStylePlain target:self action:@selector(toggleBatchMode)];
-                [rightBarButtonItems addObject:self.batchButton];
-            }
+            self.batchButton = [[UIBarButtonItem alloc] initWithTitle:@"批量" style:UIBarButtonItemStylePlain target:self action:@selector(toggleBatchMode)];
+            self.navigationItem.rightBarButtonItems = @[self.refreshButton, self.batchButton];
         }
-        self.navigationItem.rightBarButtonItems = rightBarButtonItems;
     } else {
         self.navigationItem.rightBarButtonItems = nil;
     }
@@ -205,23 +173,10 @@
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSMutableArray *modrinthResults = [[ModrinthAPI sharedInstance] searchModWithFilters:filters previousPageResult:nil];
 
-        // Safely parse the results into ModItem objects
-        NSMutableArray<ModItem *> *parsedMods = [NSMutableArray array];
-        if (modrinthResults) {
-            for (NSDictionary *modData in modrinthResults) {
-                @try {
-                    ModItem *item = [[ModItem alloc] initWithOnlineData:modData];
-                    if (item) {
-                        [parsedMods addObject:item];
-                    }
-                } @catch (NSException *exception) {
-                    NSLog(@"[ModsManager] Failed to parse mod data, skipping. Reason: %@", exception.reason);
-                }
-            }
-        }
-
         dispatch_async(dispatch_get_main_queue(), ^{
-            [self.onlineSearchResults addObjectsFromArray:parsedMods];
+            if (modrinthResults) {
+                [self.onlineSearchResults addObjectsFromArray:modrinthResults];
+            }
             [self setLoading:NO];
             self.emptyLabel.hidden = self.onlineSearchResults.count > 0;
             if (self.onlineSearchResults.count == 0) {
@@ -290,18 +245,15 @@
     ModTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"ModCell" forIndexPath:indexPath];
     cell.delegate = self;
 
-    ModItem *modItem;
     if (self.currentMode == ModsManagerModeLocal) {
-        modItem = self.filteredLocalMods[indexPath.row];
-        [cell configureWithMod:modItem displayMode:ModTableViewCellDisplayModeLocal];
-        [cell updateBatchSelectionState:[self.selectedModPaths containsObject:modItem.filePath] batchMode:self.isBatchMode];
+        ModItem *mod = self.filteredLocalMods[indexPath.row];
+        [cell configureWithMod:mod displayMode:ModTableViewCellDisplayModeLocal];
+        [cell updateBatchSelectionState:[self.selectedModPaths containsObject:mod.filePath] batchMode:self.isBatchMode];
     } else {
-        modItem = self.onlineSearchResults[indexPath.row];
+        NSDictionary *modData = self.onlineSearchResults[indexPath.row];
+        ModItem *modItem = [[ModItem alloc] initWithOnlineData:modData];
         [cell configureWithMod:modItem displayMode:ModTableViewCellDisplayModeOnline];
     }
-
-    // Build and assign the menu for the info button
-    cell.openLinkButton.menu = [self createMenuForMod:modItem];
 
     return cell;
 }
@@ -362,7 +314,8 @@
     NSIndexPath *indexPath = [self.tableView indexPathForCell:cell];
     if (!indexPath || self.currentMode != ModsManagerModeOnline) return;
 
-    ModItem *modItem = self.onlineSearchResults[indexPath.row];
+    NSDictionary *modData = self.onlineSearchResults[indexPath.row];
+    ModItem *modItem = [[ModItem alloc] initWithOnlineData:modData];
     
     ModVersionViewController *versionVC = [[ModVersionViewController alloc] init];
     versionVC.modItem = modItem;
@@ -408,11 +361,9 @@
 
     [[ModService sharedService] downloadMod:item toProfile:self.profileName completion:^(NSError * _Nullable error) {
         dispatch_async(dispatch_get_main_queue(), ^{
-            // First, dismiss the "downloading" alert immediately.
-            [downloadingAlert dismissViewControllerAnimated:YES completion:nil];
-
-            // Then, present the result alert on the next run loop cycle.
-            dispatch_async(dispatch_get_main_queue(), ^{
+            // First, dismiss the "downloading" alert
+            [downloadingAlert dismissViewControllerAnimated:YES completion:^{
+                // Then, show the result alert
                 if (error) {
                     [self showSimpleAlertWithTitle:@"下载失败" message:error.localizedDescription];
                 } else {
@@ -427,7 +378,7 @@
                     }]];
                     [self presentViewController:successAlert animated:YES completion:nil];
                 }
-            });
+            }];
         });
     }];
 }
@@ -511,47 +462,8 @@
     }
 }
 
-- (UIMenu *)createMenuForMod:(ModItem *)modItem {
-    if (!modItem.onlineID && !modItem.displayName) {
-        return nil; // Cannot create actions without data
-    }
-
-    NSMutableArray<UIAction *> *actions = [NSMutableArray array];
-
-    // 1. Open on Modrinth
-    if (modItem.onlineID) {
-        UIAction *modrinthAction = [UIAction actionWithTitle:@"在 Modrinth 中打开" image:[UIImage systemImageNamed:@"safari"] identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
-            NSString *urlString = [NSString stringWithFormat:@"https://modrinth.com/mod/%@", modItem.onlineID];
-            NSURL *url = [NSURL URLWithString:urlString];
-            if (url) {
-                [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
-            }
-        }];
-        [actions addObject:modrinthAction];
-    }
-
-    // 2. Search on MCMod
-    if (modItem.displayName) {
-        UIAction *mcmodAction = [UIAction actionWithTitle:@"在 MC 百科中搜索" image:[UIImage systemImageNamed:@"book"] identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
-            NSString *encodedName = [modItem.displayName stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]];
-            NSString *urlString = [NSString stringWithFormat:@"https://www.mcmod.cn/s?key=%@", encodedName];
-            NSURL *url = [NSURL URLWithString:urlString];
-            if (url) {
-                [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
-            }
-        }];
-        [actions addObject:mcmodAction];
-    }
-
-    // 3. Copy Modrinth ID
-    if (modItem.onlineID) {
-        UIAction *copyIdAction = [UIAction actionWithTitle:@"复制 Modrinth ID" image:[UIImage systemImageNamed:@"doc.on.doc"] identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
-            [UIPasteboard generalPasteboard].string = modItem.onlineID;
-        }];
-        [actions addObject:copyIdAction];
-    }
-
-    return [UIMenu menuWithTitle:@"" children:actions];
+- (void)modCellDidTapOpenLink:(UITableViewCell *)cell {
+    // Not used in this controller, but required by protocol.
 }
 
 @end
