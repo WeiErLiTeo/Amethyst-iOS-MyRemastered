@@ -1,5 +1,6 @@
 #import <UIKit/UIKit.h>
 #import "ModVersionViewController.h"
+#import "ModItem.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -19,7 +20,7 @@ typedef NS_ENUM(NSInteger, ModsManagerMode) {
 
 // Properties for online search
 @property (nonatomic, assign) ModsManagerMode currentMode;
-@property (nonatomic, strong) NSMutableArray *onlineSearchResults;
+@property (nonatomic, strong) NSMutableArray<ModItem *> *onlineSearchResults;
 
 @end
 

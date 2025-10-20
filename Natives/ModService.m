@@ -251,10 +251,17 @@
                 mod.author = [json[@"authors"] componentsJoinedByString:@", "];
                 // Icon parsing (optional)
                 NSString *iconPath = json[@"icon"];
-                if ([iconPath isKindOfClass:[NSString class]]) {
+                if ([iconPath isKindOfClass:[NSString class]] && iconPath.length > 0) {
                     NSData *iconData = [self readFileFromJar:mod.filePath entryName:iconPath];
                     if (iconData) {
-                        mod.icon = [[UIImage alloc] initWithData:iconData];
+                        UIImage *image = [[UIImage alloc] initWithData:iconData];
+                        if (image) {
+                            mod.icon = image;
+                        } else {
+                            NSLog(@"[ModService] Failed to create image from icon data for mod: %@ (Icon path: %@)", mod.fileName, iconPath);
+                        }
+                    } else {
+                        NSLog(@"[ModService] Failed to read icon file '%@' from jar for mod: %@", iconPath, mod.fileName);
                     }
                 }
                 if (completion) completion(mod, nil);
@@ -283,7 +290,14 @@
                     if (logoFile.length > 0) {
                         NSData *logoData = [self readFileFromJar:mod.filePath entryName:logoFile];
                         if (logoData) {
-                             mod.icon = [[UIImage alloc] initWithData:logoData];
+                            UIImage *image = [[UIImage alloc] initWithData:logoData];
+                            if (image) {
+                                mod.icon = image;
+                            } else {
+                                NSLog(@"[ModService] Failed to create image from Forge logo data for mod: %@ (Logo file: %@)", mod.fileName, logoFile);
+                            }
+                        } else {
+                             NSLog(@"[ModService] Failed to read Forge logo file '%@' from jar for mod: %@", logoFile, mod.fileName);
                         }
                     }
                     if (completion) completion(mod, nil);
@@ -306,12 +320,19 @@
                     mod.modDescription = modInfo[@"description"];
                     mod.author = modInfo[@"authors"];
                     NSString *logoFile = modInfo[@"logoFile"];
-                     if (logoFile.length > 0) {
-                        NSData *logoData = [self readFileFromJar:mod.filePath entryName:logoFile];
-                        if (logoData) {
-                             mod.icon = [[UIImage alloc] initWithData:logoData];
-                        }
-                    }
+                    if (logoFile.length > 0) {
+                       NSData *logoData = [self readFileFromJar:mod.filePath entryName:logoFile];
+                       if (logoData) {
+                           UIImage *image = [[UIImage alloc] initWithData:logoData];
+                           if (image) {
+                               mod.icon = image;
+                           } else {
+                               NSLog(@"[ModService] Failed to create image from NeoForge logo data for mod: %@ (Logo file: %@)", mod.fileName, logoFile);
+                           }
+                       } else {
+                            NSLog(@"[ModService] Failed to read NeoForge logo file '%@' from jar for mod: %@", logoFile, mod.fileName);
+                       }
+                   }
                     if (completion) completion(mod, nil);
                     return;
                 }

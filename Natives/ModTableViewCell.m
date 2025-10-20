@@ -28,7 +28,7 @@
         _nameLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
         _nameLabel.rate = 60.0;
         _nameLabel.fadeLength = 10.0;
-        _nameLabel.marqueeType = MLRightLeft;
+        _nameLabel.marqueeType = MLContinuous;
         _nameLabel.animationDelay = 2.0;
         _nameLabel.font = [UIFont boldSystemFontOfSize:15];
         _nameLabel.textColor = [UIColor labelColor];
@@ -40,7 +40,7 @@
         _descLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
         _descLabel.rate = 50.0;
         _descLabel.fadeLength = 10.0;
-        _descLabel.marqueeType = MLRightLeft;
+        _descLabel.marqueeType = MLContinuous;
         _descLabel.animationDelay = 2.0;
         _descLabel.numberOfLines = 2; // Still allow up to 2 lines, marquee will apply if needed on a single long line
         _descLabel.font = [UIFont systemFontOfSize:11];
@@ -160,7 +160,7 @@
         [_loaderBadgesStackView.heightAnchor constraintEqualToConstant:16],
 
         [_descLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
-        [_descLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-padding],
+        [_descLabel.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
         [_descLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:3],
 
         // Make sure the cell's height is determined by its content
@@ -193,9 +193,8 @@
         [_downloadButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
 
         // Ensure name label doesn't overlap with badges or buttons
-        [_nameLabel.trailingAnchor constraintLessThanOrEqualToAnchor:_loaderBadgesStackView.leadingAnchor constant:-8],
-        [_loaderBadgesStackView.trailingAnchor constraintLessThanOrEqualToAnchor:_enableSwitch.leadingAnchor constant:-padding],
-        [_loaderBadgesStackView.trailingAnchor constraintLessThanOrEqualToAnchor:_downloadButton.leadingAnchor constant:-padding],
+        [_nameLabel.trailingAnchor constraintEqualToAnchor:_loaderBadgesStackView.leadingAnchor constant:-5],
+        [_loaderBadgesStackView.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-8],
     ]];
 }
 

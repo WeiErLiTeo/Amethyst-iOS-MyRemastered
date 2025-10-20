@@ -57,26 +57,63 @@
 
 - (UITableViewCell *)tableView:(nonnull UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    UITextField *view;
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"cell"];
+    UITextField *textField;
+    MarqueeLabel *marqueeLabel;
+
     if (cell == nil) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"cell"];
-        view = [[UITextField alloc] initWithFrame:CGRectMake(20, 10, (cell.bounds.size.width-40)/2, cell.bounds.size.height-20)];
-        [view addTarget:view action:@selector(resignFirstResponder) forControlEvents:UIControlEventEditingDidEndOnExit];
-        view.autocorrectionType = UITextAutocorrectionTypeNo;
-        view.autocapitalizationType = UITextAutocapitalizationTypeNone;
-        view.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-        view.delegate = self;
-        view.returnKeyType = UIReturnKeyDone;
-        view.userInteractionEnabled = indexPath.row != 0;
-        [cell.contentView addSubview:view];
+
+        // --- MarqueeLabel for display ---
+        marqueeLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
+        marqueeLabel.tag = 1001;
+        marqueeLabel.marqueeType = MLContinuous;
+        marqueeLabel.rate = 40.0f;
+        marqueeLabel.fadeLength = 10.0f;
+        marqueeLabel.animationDelay = 2.0;
+        marqueeLabel.font = [UIFont systemFontOfSize:17.0];
+        marqueeLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        [cell.contentView addSubview:marqueeLabel];
+
+        // --- UITextField for editing ---
+        textField = [[UITextField alloc] init];
+        textField.tag = 1002;
+        textField.hidden = YES; // Initially hidden
+        [textField addTarget:textField action:@selector(resignFirstResponder) forControlEvents:UIControlEventEditingDidEndOnExit];
+        textField.autocorrectionType = UITextAutocorrectionTypeNo;
+        textField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+        textField.delegate = self;
+        textField.returnKeyType = UIReturnKeyDone;
+        textField.font = [UIFont systemFontOfSize:17.0];
+        textField.translatesAutoresizingMaskIntoConstraints = NO;
+        [cell.contentView addSubview:textField];
+
         cell.detailTextLabel.text = @"...";
+
+        // --- Constraints ---
+        // Both labels should occupy the same space
+        [NSLayoutConstraint activateConstraints:@[
+            [marqueeLabel.leadingAnchor constraintEqualToAnchor:cell.contentView.leadingAnchor constant:15],
+            [marqueeLabel.trailingAnchor constraintEqualToAnchor:cell.contentView.trailingAnchor constant:-15],
+            [marqueeLabel.topAnchor constraintEqualToAnchor:cell.contentView.topAnchor constant:5],
+            [marqueeLabel.bottomAnchor constraintEqualToAnchor:cell.detailTextLabel.topAnchor constant:-2],
+
+            [textField.leadingAnchor constraintEqualToAnchor:marqueeLabel.leadingAnchor],
+            [textField.trailingAnchor constraintEqualToAnchor:marqueeLabel.trailingAnchor],
+            [textField.centerYAnchor constraintEqualToAnchor:marqueeLabel.centerYAnchor]
+        ]];
+
+    } else {
+        marqueeLabel = [cell.contentView viewWithTag:1001];
+        textField = [cell.contentView viewWithTag:1002];
     }
-    view = cell.contentView.subviews.firstObject;
-    view.placeholder = self.array[indexPath.row];
-    view.text = self.array[indexPath.row];
+
+    marqueeLabel.text = self.array[indexPath.row];
+    textField.text = self.array[indexPath.row];
+    textField.placeholder = self.array[indexPath.row];
+    textField.userInteractionEnabled = indexPath.row != 0;
+
     cell.textLabel.hidden = YES;
-    cell.textLabel.text = view.text;
 
     // Calculate the instance size
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
@@ -168,8 +205,14 @@ viewForFooterInSection:(NSInteger)section
             image:[UIImage systemImageNamed:@"pencil"]
             identifier:nil
             handler:^(UIAction *action) {
-                UITableViewCell *view = [self.tableView cellForRowAtIndexPath:indexPath];
-                [view.contentView.subviews.firstObject becomeFirstResponder];
+                UITableViewCell *cell = [self.tableView cellForRowAtIndexPath:indexPath];
+                if (cell) {
+                    MarqueeLabel *marqueeLabel = [cell.contentView viewWithTag:1001];
+                    UITextField *textField = [cell.contentView viewWithTag:1002];
+                    marqueeLabel.hidden = YES;
+                    textField.hidden = NO;
+                    [textField becomeFirstResponder];
+                }
             }
         ];
 
@@ -247,12 +290,28 @@ viewForFooterInSection:(NSInteger)section
 #pragma mark UITextField
 
 - (void)textFieldDidEndEditing:(UITextField *)sender {
-    BOOL isFooterView = sender.superview == self.tableView;
+    // --- Find the corresponding cell and labels ---
+    UIView *superview = sender.superview;
+    while (superview && ![superview isKindOfClass:[UITableViewCell class]]) {
+        superview = superview.superview;
+    }
+    UITableViewCell *cell = (UITableViewCell *)superview;
+    MarqueeLabel *marqueeLabel = nil;
+    if (cell) {
+        marqueeLabel = [cell.contentView viewWithTag:1001];
+    }
+
+    BOOL isFooterView = ![cell isKindOfClass:[UITableViewCell class]];
+
     if (!sender.hasText || [sender.text isEqualToString:sender.placeholder]) {
-        if (isFooterView) {
-            return;
+        if (!isFooterView) {
+            sender.text = sender.placeholder;
+            // --- UI state reset ---
+            if (marqueeLabel) {
+                marqueeLabel.hidden = NO;
+                sender.hidden = YES;
+            }
         }
-        sender.text = sender.placeholder;
         return;
     }
 
@@ -274,7 +333,7 @@ viewForFooterInSection:(NSInteger)section
             [self.tableView beginUpdates];
             [self.tableView insertRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
             [self.tableView endUpdates];
-            [self tableView:self.tableView didSelectRowAtIndexPath:indexPath];
+            [self.tableView selectRowAtIndexPath:indexPath animated:NO scrollPosition:UITableViewScrollPositionNone];
             // Clear text
             sender.text = @"";
         } else {
@@ -282,11 +341,23 @@ viewForFooterInSection:(NSInteger)section
             self.array[index] = sender.placeholder = sender.text;
             NSIndexPath *indexPath = [NSIndexPath indexPathForRow:index inSection:0];
             [self tableView:self.tableView didSelectRowAtIndexPath:indexPath];
+
+            // --- UI state reset on success ---
+            if (marqueeLabel) {
+                marqueeLabel.text = sender.text;
+                marqueeLabel.hidden = NO;
+                sender.hidden = YES;
+            }
         }
     } else {
         // Restore to the previous name if we encounter an error
         if (!isFooterView) {
             sender.text = sender.placeholder;
+             // --- UI state reset on failure ---
+            if (marqueeLabel) {
+                marqueeLabel.hidden = NO;
+                sender.hidden = YES;
+            }
         }
         showDialog(localize(@"Error", nil), error.localizedDescription);
     }

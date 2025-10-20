@@ -16,6 +16,7 @@
 
 #import "ImageCropperViewController.h"
 #import "CustomIconManager.h"
+#import "ModSettingsViewController.h"
 
 @interface LauncherPreferencesViewController()
 @property(nonatomic) NSArray<NSString*> *rendererKeys, *rendererList;
@@ -607,6 +608,18 @@
         return nil;
     }
     return footer;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    NSDictionary *pref = [self preferenceForIndexPath:indexPath];
+    NSString *key = pref[@"key"];
+
+    if ([key isEqualToString:@"mod_settings"]) {
+        ModSettingsViewController *modSettingsVC = [[ModSettingsViewController alloc] init];
+        [self.navigationController pushViewController:modSettingsVC animated:YES];
+    } else {
+        [super tableView:tableView didSelectRowAtIndexPath:indexPath];
+    }
 }
 
 @end

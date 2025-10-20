@@ -204,15 +204,27 @@
 
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSMutableArray *modrinthResults = [[ModrinthAPI sharedInstance] searchModWithFilters:filters previousPageResult:nil];
+        NSMutableArray<ModItem *> *parsedMods = [NSMutableArray array];
+
+        if (modrinthResults) {
+            for (NSDictionary *modData in modrinthResults) {
+                @try {
+                    ModItem *item = [[ModItem alloc] initWithOnlineData:modData];
+                    if (item) {
+                        [parsedMods addObject:item];
+                    }
+                } @catch (NSException *exception) {
+                    NSLog(@"[ModsManager] Error parsing mod data, skipping. Reason: %@, Data: %@", exception.reason, modData);
+                }
+            }
+        }
 
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (modrinthResults) {
-                [self.onlineSearchResults addObjectsFromArray:modrinthResults];
-            }
+            self.onlineSearchResults = parsedMods;
             [self setLoading:NO];
             self.emptyLabel.hidden = self.onlineSearchResults.count > 0;
             if (self.onlineSearchResults.count == 0) {
-                self.emptyLabel.text = @"未找到在线结果";
+                self.emptyLabel.text = @"未找到在线结果或解析失败";
             }
             [self.tableView reloadData];
         });
@@ -283,8 +295,7 @@
         [cell configureWithMod:modItem displayMode:ModTableViewCellDisplayModeLocal];
         [cell updateBatchSelectionState:[self.selectedModPaths containsObject:modItem.filePath] batchMode:self.isBatchMode];
     } else {
-        NSDictionary *modData = self.onlineSearchResults[indexPath.row];
-        modItem = [[ModItem alloc] initWithOnlineData:modData];
+        modItem = self.onlineSearchResults[indexPath.row];
         [cell configureWithMod:modItem displayMode:ModTableViewCellDisplayModeOnline];
     }
 
@@ -350,8 +361,7 @@
     NSIndexPath *indexPath = [self.tableView indexPathForCell:cell];
     if (!indexPath || self.currentMode != ModsManagerModeOnline) return;
 
-    NSDictionary *modData = self.onlineSearchResults[indexPath.row];
-    ModItem *modItem = [[ModItem alloc] initWithOnlineData:modData];
+    ModItem *modItem = self.onlineSearchResults[indexPath.row];
     
     ModVersionViewController *versionVC = [[ModVersionViewController alloc] init];
     versionVC.modItem = modItem;
