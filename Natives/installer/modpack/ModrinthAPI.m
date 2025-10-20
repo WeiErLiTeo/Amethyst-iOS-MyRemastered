@@ -111,6 +111,11 @@
             return;
         }
 
+        // --- Log raw JSON response for debugging ---
+        NSString *rawResponseString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        NSLog(@"[ModrinthAPI DEBUG] Raw versions response: %@", rawResponseString);
+        // --- End logging ---
+
         NSError *jsonError = nil;
         id jsonResult = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonError];
 
