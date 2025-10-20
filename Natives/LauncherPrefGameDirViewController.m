@@ -5,6 +5,7 @@
 #import "PLProfiles.h"
 #import "ios_uikit_bridge.h"
 #import "utils.h"
+#import "MarqueeLabel.h"
 
 @interface LauncherPrefGameDirViewController ()<UITextFieldDelegate>
 @property(nonatomic) NSMutableArray *array;

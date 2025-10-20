@@ -20,6 +20,7 @@
 
 @interface LauncherPreferencesViewController()
 @property(nonatomic) NSArray<NSString*> *rendererKeys, *rendererList;
+- (NSDictionary *)preferenceForIndexPath:(NSIndexPath *)indexPath;
 @end
 
 @implementation LauncherPreferencesViewController
