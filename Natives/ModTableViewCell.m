@@ -197,6 +197,7 @@
     _downloadButton.hidden = YES;
 
     // Show local elements
+    _descLabel.hidden = NO;
     _openLinkButton.hidden = NO; // Globe icon should be visible for local mods too
     _enableSwitch.hidden = NO;
     _loaderBadgesStackView.hidden = NO;
@@ -225,6 +226,7 @@
     // Hide local elements
     _enableSwitch.hidden = YES;
     _loaderBadgesStackView.hidden = YES; // Badges aren't shown in online mode for now
+    _descLabel.hidden = YES; // Hide description to prevent overlap
 
     // Show online elements
     _authorLabel.hidden = NO;
@@ -247,15 +249,6 @@
 - (void)updateToggleState:(BOOL)disabled {
     [_enableSwitch setOn:!disabled animated:YES];
     self.contentView.alpha = disabled ? 0.6 : 1.0;
-}
-
-- (void)updateBatchSelectionState:(BOOL)isSelected batchMode:(BOOL)batchMode {
-    self.isBatchMode = batchMode;
-    if (batchMode && isSelected) {
-        self.backgroundColor = [UIColor colorWithRed:0.0 green:1.0 blue:0.0 alpha:0.3];
-    } else {
-        self.backgroundColor = [UIColor systemBackgroundColor];
-    }
 }
 
 #pragma mark - Actions

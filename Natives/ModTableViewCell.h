@@ -34,15 +34,11 @@ typedef NS_ENUM(NSInteger, ModTableViewCellDisplayMode) {
 
 @property (nonatomic, weak) id<ModTableViewCellDelegate> delegate;
 
-// --- State Properties ---
-@property (nonatomic, assign) BOOL isBatchMode;
-
 // --- Configuration ---
 - (void)configureWithMod:(ModItem *)mod displayMode:(ModTableViewCellDisplayMode)mode;
 
 // --- State Updates ---
 - (void)updateToggleState:(BOOL)disabled;
-- (void)updateBatchSelectionState:(BOOL)isSelected batchMode:(BOOL)batchMode;
 
 @end
 

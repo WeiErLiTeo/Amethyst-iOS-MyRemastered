@@ -12,7 +12,6 @@
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) UIActivityIndicatorView *activityIndicator;
 @property (nonatomic, strong) UILabel *emptyLabel;
-@property (nonatomic, strong) UIBarButtonItem *batchButton;
 @property (nonatomic, strong) UIBarButtonItem *refreshButton;
 @property (nonatomic, strong) NSMutableArray<ModItem *> *localMods;
 @property (nonatomic, strong) NSMutableArray<ModItem *> *filteredLocalMods;
@@ -28,11 +27,9 @@
     self.title = @"管理 Mod";
     self.view.backgroundColor = [UIColor systemBackgroundColor];
     self.currentMode = ModsManagerModeLocal;
-    self.isBatchMode = NO;
     self.localMods = [NSMutableArray array];
     self.filteredLocalMods = [NSMutableArray array];
     self.onlineSearchResults = [NSMutableArray array];
-    self.selectedModPaths = [NSMutableSet set];
     [self setupUI];
     [self refreshLocalModsList];
 }
@@ -70,7 +67,6 @@
     self.emptyLabel.hidden = YES;
     [self.view addSubview:self.emptyLabel];
     self.refreshButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshLocalModsList)];
-    self.batchButton = [[UIBarButtonItem alloc] initWithTitle:@"批量" style:UIBarButtonItemStylePlain target:self action:@selector(toggleBatchMode)];
     [self updateNavigationButtons];
     [NSLayoutConstraint activateConstraints:@[
         [self.modeSwitcher.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8],
@@ -108,7 +104,7 @@
         self.emptyLabel.hidden = self.localMods.count > 0;
     } else {
         self.searchBar.placeholder = @"在线搜索 Modrinth...";
-        self.tableView.refreshControl.enabled = NO;
+        self.tableView.refreshControl.enabled = NO; // Disable pull-to-refresh for online mode
         self.emptyLabel.text = @"输入关键词进行在线搜索";
         self.emptyLabel.hidden = self.onlineSearchResults.count > 0;
     }
@@ -118,14 +114,7 @@
 
 - (void)updateNavigationButtons {
     if (self.currentMode == ModsManagerModeLocal) {
-        if (self.isBatchMode) {
-            self.batchButton = [[UIBarButtonItem alloc] initWithTitle:@"取消" style:UIBarButtonItemStyleDone target:self action:@selector(toggleBatchMode)];
-            UIBarButtonItem *deleteButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemTrash target:self action:@selector(deleteSelectedMods)];
-            self.navigationItem.rightBarButtonItems = @[self.batchButton, deleteButton];
-        } else {
-            self.batchButton = [[UIBarButtonItem alloc] initWithTitle:@"批量" style:UIBarButtonItemStylePlain target:self action:@selector(toggleBatchMode)];
-            self.navigationItem.rightBarButtonItems = @[self.refreshButton, self.batchButton];
-        }
+        self.navigationItem.rightBarButtonItems = @[self.refreshButton];
     } else {
         self.navigationItem.rightBarButtonItems = nil;
     }
@@ -248,7 +237,6 @@
     if (self.currentMode == ModsManagerModeLocal) {
         ModItem *mod = self.filteredLocalMods[indexPath.row];
         [cell configureWithMod:mod displayMode:ModTableViewCellDisplayModeLocal];
-        [cell updateBatchSelectionState:[self.selectedModPaths containsObject:mod.filePath] batchMode:self.isBatchMode];
     } else {
         NSDictionary *modData = self.onlineSearchResults[indexPath.row];
         ModItem *modItem = [[ModItem alloc] initWithOnlineData:modData];
@@ -259,8 +247,8 @@
 }
 
 - (UISwipeActionsConfiguration *)tableView:(UITableView *)tableView trailingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath {
-    if (self.currentMode != ModsManagerModeLocal || self.isBatchMode) {
-        return nil; // No swipe actions in online mode or batch mode
+    if (self.currentMode != ModsManagerModeLocal) {
+        return nil;
     }
 
     UIContextualAction *deleteAction = [UIContextualAction contextualActionWithStyle:UIContextualActionStyleDestructive title:@"删除" handler:^(UIContextualAction * _Nonnull action, __kindof UIView * _Nonnull sourceView, void (^ _Nonnull completionHandler)(BOOL)) {
@@ -389,54 +377,8 @@
     [self presentViewController:alert animated:YES completion:nil];
 }
 
-
-- (void)toggleBatchMode {
-    if (self.currentMode != ModsManagerModeLocal) return;
-    self.isBatchMode = !self.isBatchMode;
-    if (!self.isBatchMode) {
-        [self.selectedModPaths removeAllObjects];
-    }
-    [self updateNavigationButtons];
-    [self.tableView reloadData];
-}
-
-- (void)deleteSelectedMods {
-    if (self.selectedModPaths.count == 0) return;
-    
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"确认删除" message:[NSString stringWithFormat:@"确定要删除 %lu 个 Mod 吗？此操作无法撤销。", (unsigned long)self.selectedModPaths.count] preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"删除" style:UIAlertActionStyleDestructive handler:^(UIAlertAction * _Nonnull action) {
-        for (NSString *path in self.selectedModPaths) {
-            ModItem *itemToDelete = nil;
-            for (ModItem *item in self.localMods) {
-                if ([item.filePath isEqualToString:path]) {
-                    itemToDelete = item;
-                    break;
-                }
-            }
-            if (itemToDelete) {
-                [[ModService sharedService] deleteMod:itemToDelete error:nil];
-            }
-        }
-        [self.selectedModPaths removeAllObjects];
-        [self refreshLocalModsList];
-        // Exit batch mode after deletion
-        self.isBatchMode = NO;
-        [self updateNavigationButtons];
-    }]];
-    [self presentViewController:alert animated:YES completion:nil];
-}
-
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    if (self.currentMode == ModsManagerModeLocal && self.isBatchMode) {
-        ModItem *mod = self.filteredLocalMods[indexPath.row];
-        if ([self.selectedModPaths containsObject:mod.filePath]) {
-            [self.selectedModPaths removeObject:mod.filePath];
-        } else {
-            [self.selectedModPaths addObject:mod.filePath];
-        }
-        [tableView reloadRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationNone];
-    } else if (self.currentMode == ModsManagerModeOnline) {
+    if (self.currentMode == ModsManagerModeOnline) {
         // Handle online search item selection if necessary (e.g., show details)
         [tableView deselectRowAtIndexPath:indexPath animated:YES];
     }
