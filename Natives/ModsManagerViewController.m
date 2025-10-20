@@ -53,7 +53,7 @@
     [self.tableView registerClass:[ModTableViewCell class] forCellReuseIdentifier:@"ModCell"];
     self.tableView.dataSource = self;
     self.tableView.delegate = self;
-    self.tableView.rowHeight = 100;
+    self.tableView.rowHeight = 50;
     self.tableView.tableFooterView = [UIView new];
     [self.view addSubview:self.tableView];
     UIRefreshControl *rc = [UIRefreshControl new];

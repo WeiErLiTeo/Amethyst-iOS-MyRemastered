@@ -288,8 +288,33 @@
 
 #pragma mark - File operations
 - (BOOL)toggleEnableForMod:(ModItem *)mod error:(NSError **)error {
-    // ... same implementation as before ...
-    return YES;
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSString *currentPath = mod.filePath;
+    NSString *newPath;
+
+    if (mod.disabled) {
+        // Enable the mod: remove .disabled suffix
+        if ([currentPath.lowercaseString hasSuffix:@".jar.disabled"]) {
+            newPath = [currentPath substringToIndex:currentPath.length - 9];
+        } else {
+            // Should not happen, but handle gracefully
+            if (error) *error = [NSError errorWithDomain:@"ModServiceError" code:101 userInfo:@{NSLocalizedDescriptionKey:@"文件状态不一致，无法启用。"}];
+            return NO;
+        }
+    } else {
+        // Disable the mod: add .disabled suffix
+        newPath = [currentPath stringByAppendingString:@".disabled"];
+    }
+
+    BOOL success = [fileManager moveItemAtPath:currentPath toPath:newPath error:error];
+    if (success) {
+        // IMPORTANT: Update the model object to reflect the change
+        mod.filePath = newPath;
+        mod.fileName = [newPath lastPathComponent];
+        [mod refreshDisabledFlag]; // This will set `disabled` property correctly
+    }
+
+    return success;
 }
 
 - (BOOL)deleteMod:(ModItem *)mod error:(NSError **)error {
