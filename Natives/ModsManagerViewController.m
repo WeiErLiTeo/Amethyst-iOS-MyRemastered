@@ -205,10 +205,23 @@
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSMutableArray *modrinthResults = [[ModrinthAPI sharedInstance] searchModWithFilters:filters previousPageResult:nil];
 
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (modrinthResults) {
-                [self.onlineSearchResults addObjectsFromArray:modrinthResults];
+        // Safely parse the results into ModItem objects
+        NSMutableArray<ModItem *> *parsedMods = [NSMutableArray array];
+        if (modrinthResults) {
+            for (NSDictionary *modData in modrinthResults) {
+                @try {
+                    ModItem *item = [[ModItem alloc] initWithOnlineData:modData];
+                    if (item) {
+                        [parsedMods addObject:item];
+                    }
+                } @catch (NSException *exception) {
+                    NSLog(@"[ModsManager] Failed to parse mod data, skipping. Reason: %@", exception.reason);
+                }
             }
+        }
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.onlineSearchResults addObjectsFromArray:parsedMods];
             [self setLoading:NO];
             self.emptyLabel.hidden = self.onlineSearchResults.count > 0;
             if (self.onlineSearchResults.count == 0) {
@@ -283,8 +296,7 @@
         [cell configureWithMod:modItem displayMode:ModTableViewCellDisplayModeLocal];
         [cell updateBatchSelectionState:[self.selectedModPaths containsObject:modItem.filePath] batchMode:self.isBatchMode];
     } else {
-        NSDictionary *modData = self.onlineSearchResults[indexPath.row];
-        modItem = [[ModItem alloc] initWithOnlineData:modData];
+        modItem = self.onlineSearchResults[indexPath.row];
         [cell configureWithMod:modItem displayMode:ModTableViewCellDisplayModeOnline];
     }
 
@@ -350,8 +362,7 @@
     NSIndexPath *indexPath = [self.tableView indexPathForCell:cell];
     if (!indexPath || self.currentMode != ModsManagerModeOnline) return;
 
-    NSDictionary *modData = self.onlineSearchResults[indexPath.row];
-    ModItem *modItem = [[ModItem alloc] initWithOnlineData:modData];
+    ModItem *modItem = self.onlineSearchResults[indexPath.row];
     
     ModVersionViewController *versionVC = [[ModVersionViewController alloc] init];
     versionVC.modItem = modItem;
@@ -397,9 +408,11 @@
 
     [[ModService sharedService] downloadMod:item toProfile:self.profileName completion:^(NSError * _Nullable error) {
         dispatch_async(dispatch_get_main_queue(), ^{
-            // First, dismiss the "downloading" alert
-            [downloadingAlert dismissViewControllerAnimated:YES completion:^{
-                // Then, show the result alert
+            // First, dismiss the "downloading" alert immediately.
+            [downloadingAlert dismissViewControllerAnimated:YES completion:nil];
+
+            // Then, present the result alert on the next run loop cycle.
+            dispatch_async(dispatch_get_main_queue(), ^{
                 if (error) {
                     [self showSimpleAlertWithTitle:@"下载失败" message:error.localizedDescription];
                 } else {
@@ -414,7 +427,7 @@
                     }]];
                     [self presentViewController:successAlert animated:YES completion:nil];
                 }
-            }];
+            });
         });
     }];
 }

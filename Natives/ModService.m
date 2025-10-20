@@ -251,10 +251,17 @@
                 mod.author = [json[@"authors"] componentsJoinedByString:@", "];
                 // Icon parsing (optional)
                 NSString *iconPath = json[@"icon"];
-                if ([iconPath isKindOfClass:[NSString class]]) {
+                if ([iconPath isKindOfClass:[NSString class]] && iconPath.length > 0) {
                     NSData *iconData = [self readFileFromJar:mod.filePath entryName:iconPath];
                     if (iconData) {
-                        mod.icon = [[UIImage alloc] initWithData:iconData];
+                        UIImage *image = [[UIImage alloc] initWithData:iconData];
+                        if (image) {
+                            mod.icon = image;
+                        } else {
+                            NSLog(@"[ModService] Failed to create image from icon data for mod: %@, icon path: %@", mod.fileName, iconPath);
+                        }
+                    } else {
+                        NSLog(@"[ModService] Failed to read icon data from jar for mod: %@, icon path: %@", mod.fileName, iconPath);
                     }
                 }
                 if (completion) completion(mod, nil);
@@ -283,7 +290,14 @@
                     if (logoFile.length > 0) {
                         NSData *logoData = [self readFileFromJar:mod.filePath entryName:logoFile];
                         if (logoData) {
-                             mod.icon = [[UIImage alloc] initWithData:logoData];
+                            UIImage *image = [[UIImage alloc] initWithData:logoData];
+                            if (image) {
+                                mod.icon = image;
+                            } else {
+                                NSLog(@"[ModService] Failed to create image from logo data for mod: %@, logo path: %@", mod.fileName, logoFile);
+                            }
+                        } else {
+                             NSLog(@"[ModService] Failed to read logo data from jar for mod: %@, logo path: %@", mod.fileName, logoFile);
                         }
                     }
                     if (completion) completion(mod, nil);
@@ -309,7 +323,14 @@
                      if (logoFile.length > 0) {
                         NSData *logoData = [self readFileFromJar:mod.filePath entryName:logoFile];
                         if (logoData) {
-                             mod.icon = [[UIImage alloc] initWithData:logoData];
+                            UIImage *image = [[UIImage alloc] initWithData:logoData];
+                            if (image) {
+                                mod.icon = image;
+                            } else {
+                                NSLog(@"[ModService] Failed to create image from logo data for mod: %@, logo path: %@", mod.fileName, logoFile);
+                            }
+                        } else {
+                            NSLog(@"[ModService] Failed to read logo data from jar for mod: %@, logo path: %@", mod.fileName, logoFile);
                         }
                     }
                     if (completion) completion(mod, nil);

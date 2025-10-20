@@ -16,6 +16,7 @@
 
 #import "ImageCropperViewController.h"
 #import "CustomIconManager.h"
+#import "ModSettingsViewController.h"
 
 @interface LauncherPreferencesViewController()
 @property(nonatomic) NSArray<NSString*> *rendererKeys, *rendererList;
@@ -607,6 +608,24 @@
         return nil;
     }
     return footer;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    // First, deselect the row
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+
+    NSDictionary *item = self.prefContents[indexPath.section][indexPath.row + 1];
+    NSString *key = item[@"key"];
+
+    // Manual, safe handling for the Mod Settings screen
+    if ([key isEqualToString:@"mod_settings"]) {
+        ModSettingsViewController *modSettingsVC = [[ModSettingsViewController alloc] init];
+        [self.navigationController pushViewController:modSettingsVC animated:YES];
+        return; // Explicitly return to prevent superclass interference
+    }
+
+    // For all other cells, use the default behavior from the superclass
+    [super tableView:tableView didSelectRowAtIndexPath:indexPath];
 }
 
 @end

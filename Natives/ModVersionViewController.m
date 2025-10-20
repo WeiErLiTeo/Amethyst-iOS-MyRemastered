@@ -35,22 +35,53 @@
 }
 
 - (void)setupFilterControls {
-    self.gameVersionFilterButton = [self createFilterButtonWithTitle:@"游戏版本: 加载中..."];
-    self.loaderFilterButton = [self createFilterButtonWithTitle:@"加载器: 加载中..."];
+    // Labels
+    UILabel *gameVersionLabel = [self createFilterLabelWithText:@"游戏版本:"];
+    UILabel *loaderLabel = [self createFilterLabelWithText:@"加载器:"];
 
-    UIStackView *filterStackView = [[UIStackView alloc] initWithArrangedSubviews:@[self.gameVersionFilterButton, self.loaderFilterButton]];
-    filterStackView.translatesAutoresizingMaskIntoConstraints = NO;
-    filterStackView.axis = UILayoutConstraintAxisHorizontal;
-    filterStackView.distribution = UIStackViewDistributionFillEqually;
-    filterStackView.spacing = 8;
+    // Buttons
+    self.gameVersionFilterButton = [self createFilterButtonWithTitle:@"加载中..."];
+    self.loaderFilterButton = [self createFilterButtonWithTitle:@"加载中..."];
 
-    [self.view addSubview:filterStackView];
+    // Horizontal Stack for Game Version
+    UIStackView *gameVersionStack = [[UIStackView alloc] initWithArrangedSubviews:@[gameVersionLabel, self.gameVersionFilterButton]];
+    gameVersionStack.axis = UILayoutConstraintAxisHorizontal;
+    gameVersionStack.spacing = 8;
+    gameVersionStack.alignment = UIStackViewAlignmentCenter;
+
+    // Horizontal Stack for Loader
+    UIStackView *loaderStack = [[UIStackView alloc] initWithArrangedSubviews:@[loaderLabel, self.loaderFilterButton]];
+    loaderStack.axis = UILayoutConstraintAxisHorizontal;
+    loaderStack.spacing = 8;
+    loaderStack.alignment = UIStackViewAlignmentCenter;
+
+    // Main Vertical Stack
+    UIStackView *mainFilterStack = [[UIStackView alloc] initWithArrangedSubviews:@[gameVersionStack, loaderStack]];
+    mainFilterStack.translatesAutoresizingMaskIntoConstraints = NO;
+    mainFilterStack.axis = UILayoutConstraintAxisVertical;
+    mainFilterStack.spacing = 8;
+    mainFilterStack.alignment = UIStackViewAlignmentLeading;
+
+    [self.view addSubview:mainFilterStack];
 
     [NSLayoutConstraint activateConstraints:@[
-        [filterStackView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8],
-        [filterStackView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:8],
-        [filterStackView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-8],
+        [mainFilterStack.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8],
+        [mainFilterStack.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16],
+        [mainFilterStack.trailingAnchor constraintLessThanOrEqualToAnchor:self.view.trailingAnchor constant:-16],
+
+        // Ensure labels don't get overly compressed
+        [gameVersionLabel.widthAnchor constraintEqualToConstant:80],
+        [loaderLabel.widthAnchor constraintEqualToConstant:80]
     ]];
+}
+
+- (UILabel *)createFilterLabelWithText:(NSString *)text {
+    UILabel *label = [[UILabel alloc] init];
+    label.translatesAutoresizingMaskIntoConstraints = NO;
+    label.text = text;
+    label.textColor = [UIColor labelColor];
+    label.font = [UIFont systemFontOfSize:16];
+    return label;
 }
 
 - (UIButton *)createFilterButtonWithTitle:(NSString *)title {
@@ -58,8 +89,12 @@
     button.translatesAutoresizingMaskIntoConstraints = NO;
     [button setTitle:title forState:UIControlStateNormal];
     button.layer.cornerRadius = 8;
+    // Set a minimum width to prevent the button from being too small
+    [button.widthAnchor constraintGreaterThanOrEqualToConstant:120].active = YES;
+    button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+    button.contentEdgeInsets = UIEdgeInsetsMake(5, 10, 5, 10); // Add some padding
     button.backgroundColor = [UIColor secondarySystemBackgroundColor];
-    button.showsMenuAsPrimaryAction = YES; // This is the key for UIMenu
+    button.showsMenuAsPrimaryAction = YES;
     return button;
 }
 
@@ -154,7 +189,7 @@
         [gameVersionActions addObject:action];
     }
     self.gameVersionFilterButton.menu = [UIMenu menuWithTitle:@"选择游戏版本" children:gameVersionActions];
-    [self.gameVersionFilterButton setTitle:[NSString stringWithFormat:@"游戏版本: %@", self.selectedGameVersion] forState:UIControlStateNormal];
+    [self.gameVersionFilterButton setTitle:self.selectedGameVersion forState:UIControlStateNormal];
 
     // Loader Button Menu
     NSMutableArray<UIAction *> *loaderActions = [NSMutableArray array];
@@ -170,7 +205,7 @@
         [loaderActions addObject:action];
     }
     self.loaderFilterButton.menu = [UIMenu menuWithTitle:@"选择加载器" children:loaderActions];
-    [self.loaderFilterButton setTitle:[NSString stringWithFormat:@"加载器: %@", self.selectedLoader] forState:UIControlStateNormal];
+    [self.loaderFilterButton setTitle:self.selectedLoader forState:UIControlStateNormal];
 }
 
 - (void)filterChanged {

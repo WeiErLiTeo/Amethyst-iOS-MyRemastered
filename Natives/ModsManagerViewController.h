@@ -19,7 +19,7 @@ typedef NS_ENUM(NSInteger, ModsManagerMode) {
 
 // Properties for online search
 @property (nonatomic, assign) ModsManagerMode currentMode;
-@property (nonatomic, strong) NSMutableArray *onlineSearchResults;
+@property (nonatomic, strong) NSMutableArray<ModItem *> *onlineSearchResults;
 
 @end
 
