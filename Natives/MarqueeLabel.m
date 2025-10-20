@@ -38,6 +38,8 @@
 
 @implementation MarqueeLabel
 
+@dynamic text, font, textColor;
+
 #pragma mark -
 #pragma mark Initialization
 
@@ -130,9 +132,10 @@
     }
 
     // Unpause animation
-    CFTimeInterval pausedTime = [self.subLabel.layer.timeOffset];
-    self.subLabel.layer.speed = 1.0;
-    self.subLabel.layer.timeOffset = 0.0;
+    CALayer *sublayer = self.subLabel.layer;
+    CFTimeInterval pausedTime = sublayer.timeOffset;
+    sublayer.speed = 1.0;
+    sublayer.timeOffset = 0.0;
     self.subLabel.layer.beginTime = 0.0;
     CFTimeInterval timeSincePause = [self.subLabel.layer convertTime:CACurrentMediaTime() fromLayer:nil] - pausedTime;
     self.subLabel.layer.beginTime = timeSincePause;
