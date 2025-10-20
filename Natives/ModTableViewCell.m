@@ -1,7 +1,6 @@
 #import "ModTableViewCell.h"
 #import "ModItem.h"
 #import "ModService.h"
-#import "MarqueeLabel.h"
 #import <QuartzCore/QuartzCore.h>
 
 #pragma clang diagnostic push
@@ -24,25 +23,11 @@
         // --- Initialization of UI Elements ---
         _modIconView = [self createImageViewWithCornerRadius:4];
 
-        // Replace UILabels with MarqueeLabels for scrolling long text
-        _nameLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
-        _nameLabel.rate = 60.0;
-        _nameLabel.fadeLength = 10.0;
-        _nameLabel.marqueeType = MLContinuous;
-        _nameLabel.font = [UIFont boldSystemFontOfSize:13];
-        _nameLabel.textColor = [UIColor labelColor];
-        _nameLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        _nameLabel = [self createLabelWithFont:[UIFont boldSystemFontOfSize:13] textColor:[UIColor labelColor] numberOfLines:1];
 
         _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:9] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
 
-        _descLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
-        _descLabel.rate = 50.0;
-        _descLabel.fadeLength = 10.0;
-        _descLabel.marqueeType = MLContinuous;
-        _descLabel.numberOfLines = 1;
-        _descLabel.font = [UIFont systemFontOfSize:9];
-        _descLabel.textColor = [UIColor grayColor];
-        _descLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        _descLabel = [self createLabelWithFont:[UIFont systemFontOfSize:9] textColor:[UIColor grayColor] numberOfLines:1];
 
         _statsLabel = [self createLabelWithFont:[UIFont systemFontOfSize:9] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
         _categoryLabel = [self createLabelWithFont:[UIFont systemFontOfSize:9] textColor:[UIColor systemBlueColor] numberOfLines:1];

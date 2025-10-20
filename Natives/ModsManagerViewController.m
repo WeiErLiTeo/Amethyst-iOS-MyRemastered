@@ -463,7 +463,29 @@
 }
 
 - (void)modCellDidTapOpenLink:(UITableViewCell *)cell {
-    // Not used in this controller, but required by protocol.
+    NSIndexPath *indexPath = [self.tableView indexPathForCell:cell];
+    if (!indexPath) return;
+
+    ModItem *modItem = nil;
+    if (self.currentMode == ModsManagerModeLocal) {
+        modItem = self.filteredLocalMods[indexPath.row];
+    } else {
+        NSDictionary *modData = self.onlineSearchResults[indexPath.row];
+        modItem = [[ModItem alloc] initWithOnlineData:modData];
+    }
+
+    if (modItem.onlineID && modItem.onlineID.length > 0) {
+        NSString *urlString = [NSString stringWithFormat:@"https://modrinth.com/mod/%@", modItem.onlineID];
+        NSURL *url = [NSURL URLWithString:urlString];
+        if (url) {
+            [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+        }
+    } else {
+        // Optionally, inform the user that there's no link available
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"链接不可用" message:@"该 Mod 没有可用的在线链接。" preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+    }
 }
 
 @end
