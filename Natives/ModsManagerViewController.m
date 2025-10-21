@@ -88,6 +88,13 @@
 
 - (void)modeChanged:(UISegmentedControl *)sender {
     self.currentMode = (ModsManagerMode)sender.selectedSegmentIndex;
+
+    // [BugFix] Clear image cache when switching to online mode.
+    // This prevents stale or corrupted cached images from being displayed.
+    if (self.currentMode == ModsManagerModeOnline) {
+        [[NSURLCache sharedURLCache] removeAllCachedResponses];
+    }
+
     [self.searchBar resignFirstResponder];
     self.searchBar.text = @"";
     [self.onlineSearchResults removeAllObjects];
@@ -248,13 +255,38 @@
     ModTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"ModCell" forIndexPath:indexPath];
     cell.delegate = self;
 
+    // 1. Get the single source of truth for the mod item
+    ModItem *modItem = nil;
     if (self.currentMode == ModsManagerModeLocal) {
-        ModItem *mod = self.filteredLocalMods[indexPath.row];
-        [cell configureWithMod:mod displayMode:ModTableViewCellDisplayModeLocal];
+        modItem = self.filteredLocalMods[indexPath.row];
+        [cell configureWithMod:modItem displayMode:ModTableViewCellDisplayModeLocal];
     } else {
         NSDictionary *modData = self.onlineSearchResults[indexPath.row];
-        ModItem *modItem = [[ModItem alloc] initWithOnlineData:modData];
+        modItem = [[ModItem alloc] initWithOnlineData:modData];
         [cell configureWithMod:modItem displayMode:ModTableViewCellDisplayModeOnline];
+    }
+
+    // 2. Configure the link button's action using a UIMenu for reliability
+    if (modItem.onlineID && modItem.onlineID.length > 0) {
+        NSString *urlString = [NSString stringWithFormat:@"https://modrinth.com/mod/%@", modItem.onlineID];
+        NSURL *url = [NSURL URLWithString:urlString];
+
+        if (url) {
+            UIAction *openAction = [UIAction actionWithTitle:@"在 Modrinth 上查看" image:[UIImage systemImageNamed:@"safari"] identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
+                [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+            }];
+            cell.openLinkButton.menu = [UIMenu menuWithChildren:@[openAction]];
+            cell.openLinkButton.showsMenuAsPrimaryAction = YES;
+            cell.openLinkButton.enabled = YES;
+        } else {
+            // Handle case where URL creation fails (e.g., bad onlineID)
+            cell.openLinkButton.menu = nil;
+            cell.openLinkButton.enabled = NO;
+        }
+    } else {
+        // If there's no online ID, disable the button to provide clear feedback
+        cell.openLinkButton.menu = nil;
+        cell.openLinkButton.enabled = NO;
     }
 
     return cell;
@@ -418,30 +450,5 @@
     }
 }
 
-- (void)modCellDidTapOpenLink:(UITableViewCell *)cell {
-    NSIndexPath *indexPath = [self.tableView indexPathForCell:cell];
-    if (!indexPath) return;
-
-    ModItem *modItem = nil;
-    if (self.currentMode == ModsManagerModeLocal) {
-        modItem = self.filteredLocalMods[indexPath.row];
-    } else {
-        NSDictionary *modData = self.onlineSearchResults[indexPath.row];
-        modItem = [[ModItem alloc] initWithOnlineData:modData];
-    }
-
-    if (modItem.onlineID && modItem.onlineID.length > 0) {
-        NSString *urlString = [NSString stringWithFormat:@"https://modrinth.com/mod/%@", modItem.onlineID];
-        NSURL *url = [NSURL URLWithString:urlString];
-        if (url) {
-            [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
-        }
-    } else {
-        // Optionally, inform the user that there's no link available
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"链接不可用" message:@"该 Mod 没有可用的在线链接。" preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
-        [self presentViewController:alert animated:YES completion:nil];
-    }
-}
 
 @end
