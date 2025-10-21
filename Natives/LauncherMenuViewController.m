@@ -228,13 +228,18 @@
         [self restoreHighlightedSelection];
         ((LauncherMenuCustomItem *)selected).action();
     } else {
-        if(self.isInitialVc) {
-            self.isInitialVc = NO;
-        } else {
-            self.options[self.lastSelectedIndex].vcArray = contentNavigationController.viewControllers;
-            [contentNavigationController setViewControllers:selected.vcArray animated:NO];
-            self.lastSelectedIndex = indexPath.row;
+        if (self.lastSelectedIndex == indexPath.row && !self.isInitialVc) {
+            return;
         }
+
+        if (!self.isInitialVc) {
+            self.options[self.lastSelectedIndex].vcArray = contentNavigationController.viewControllers;
+        }
+
+        [contentNavigationController setViewControllers:selected.vcArray animated:NO];
+        self.lastSelectedIndex = indexPath.row;
+        self.isInitialVc = NO;
+
         selected.vcArray[0].navigationItem.rightBarButtonItem = self.accountBtnItem;
         selected.vcArray[0].navigationItem.leftBarButtonItem = self.splitViewController.displayModeButtonItem;
         selected.vcArray[0].navigationItem.leftItemsSupplementBackButton = true;
