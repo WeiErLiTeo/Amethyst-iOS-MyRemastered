@@ -115,38 +115,77 @@ jobs:
           git commit -am "CI: Update gl4es" || true
           git push || true
 
+      #
+      # ---- 编译步骤已修改 ----
+      #
       - name: Build for ${{ matrix.platform_name }}
+        id: build_step               # (1) 添加 id
+        continue-on-error: true      # (2) 即使失败也继续，以便运行后续的错误报告步骤
         env:
           IPHONEOS_DEPLOYMENT_TARGET: 14.0
         run: |
           export PATH=/opt/homebrew/bin:$PATH
           export SLIMMED=0
+          
+          # (3) 'set -o pipefail' 确保 gmake 失败时脚本会失败
+          # 'tee build.log' 会把所有日志都保存到 build.log 文件中
+          set -o pipefail
+          
           if [ "${{ matrix.platform_name }}" == "ios" ]; then
             # Build ipa and tipa for iOS
-            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
-            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} 2>&1 | tee build.log
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1 2>&1 | tee -a build.log
           elif [ "${{ matrix.platform_name }}" == "tvos" ]; then
             # Build tipa only for tvOS
-            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1 2>&1 | tee build.log
           else
             # Build ipa only for everything else
-            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} 2>&1 | tee build.log
           fi
+
+      #
+      # ---- 这是新添加的“关键日志”提取步骤 ----
+      #
+      - name: Summarize Errors on Failure (提取关键日志)
+        # (4) 这一步只在上面的 'build_step' 失败时才运行
+        if: steps.build_step.outcome == 'failure'
+        run: |
+          echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+          echo "!!        编译失败，关键错误日志如下：        !!"
+          echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
           
+          # (5) 从 build.log 中搜索 "error:" (不区分大小写)，并显示它前后的5行
+          grep -i -C 5 "error:" build.log || true
+          
+          echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+          echo "!!        编译失败，关键警告日志如下：        !!"
+          echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+          
+          # (6) 同时搜索 "warning:" (不区分大小写)，并显示它前后的3行
+          grep -i -C 3 "warning:" build.log || true
+          
+          echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+          exit 1 # (7) 确保整个工作流在这里最终标记为“失败”（变红）
+
+      #
+      # ---- 只有在编译成功时才上传产物 ----
+      #
       - name: Upload regular ipa
+        if: steps.build_step.outcome == 'success' # (8) 仅在编译成功时运行
         uses: actions/upload-artifact@v4
         with:
           name: org.angelauramc.amethyst-${{ matrix.platform_name }}.ipa
           path: artifacts/org.angelauramc.amethyst-*-${{ matrix.platform_name }}.ipa
 
       - name: Upload regular tipa
+        if: steps.build_step.outcome == 'success' # (8) 仅在编译成功时运行
         uses: actions/upload-artifact@v4
         with:
           name: org.angelauramc.amethyst-${{ matrix.platform_name }}-trollstore.tipa
           path: artifacts/org.angelauramc.amethyst-*-${{ matrix.platform_name }}-trollstore.tipa
 
       - name: Upload PojavLauncher.dSYM
-        if: matrix.platform_name == 'ios'
+        if: matrix.platform_name == 'ios' && steps.build_step.outcome == 'success' # (8) 仅在编译成功时运行
         uses: actions/upload-artifact@v4
         with:
           name: AngelAuraAmethyst.dSYM
