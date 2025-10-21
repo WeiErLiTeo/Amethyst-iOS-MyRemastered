@@ -1,6 +1,7 @@
 #import "SceneDelegate.h"
 #import "ios_uikit_bridge.h"
 #import "LauncherPreferences.h"
+#import "utils.h"
 
 extern UIWindow *mainWindow;
 
