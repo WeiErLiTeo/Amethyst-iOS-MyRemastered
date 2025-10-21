@@ -130,10 +130,17 @@
     
     [self updateAccountInfo];
     
-    self.lastSelectedIndex = 1; // Set "Profiles" as the default selection
-    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.lastSelectedIndex inSection:0];
-    [self.tableView selectRowAtIndexPath:indexPath animated:YES scrollPosition:UITableViewScrollPositionNone];
-    [self tableView:self.tableView didSelectRowAtIndexPath:indexPath];
+    // Defer the selection of the default view controller to the next run loop.
+    // This ensures that the view hierarchy (especially the SplitViewController)
+    // is fully initialized before we programmatically trigger a navigation change.
+    // This resolves a race condition that caused the app to start on the wrong
+    // screen ("News") while highlighting the correct one ("Profiles").
+    dispatch_async(dispatch_get_main_queue(), ^{
+        self.lastSelectedIndex = 1; // Set "Profiles" as the default selection
+        NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.lastSelectedIndex inSection:0];
+        [self.tableView selectRowAtIndexPath:indexPath animated:NO scrollPosition:UITableViewScrollPositionNone];
+        [self tableView:self.tableView didSelectRowAtIndexPath:indexPath];
+    });
     
     if (getEntitlementValue(@"get-task-allow")) {
         [self displayProgress:localize(@"login.jit.checking", nil)];

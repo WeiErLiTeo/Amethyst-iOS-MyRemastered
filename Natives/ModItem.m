@@ -26,7 +26,14 @@
         _onlineID = data[@"id"] ? [data[@"id"] description] : nil; // Ensure string
         _displayName = data[@"title"] ?: @"";
         _modDescription = data[@"description"] ?: @"";
-        _iconURL = data[@"imageUrl"] ?: @"";
+
+        // [BugFix] Gracefully handle both 'imageUrl' and 'icon_url' keys from different API responses.
+        NSString *iconUrlString = data[@"imageUrl"];
+        if (!iconUrlString || iconUrlString.length == 0) {
+            iconUrlString = data[@"icon_url"];
+        }
+        _iconURL = iconUrlString ?: @"";
+
         _author = data[@"author"] ?: @"";
 
         // Ensure numbers are handled correctly
