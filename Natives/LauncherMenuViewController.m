@@ -60,8 +60,8 @@
     [titleView sizeToFit];
     
     self.options = @[
-        [LauncherMenuCustomItem vcClass:LauncherNewsViewController.class],
         [LauncherMenuCustomItem vcClass:LauncherProfilesViewController.class],
+        [LauncherMenuCustomItem vcClass:LauncherNewsViewController.class],
         [LauncherMenuCustomItem vcClass:LauncherPreferencesViewController.class],
     ].mutableCopy;
     if (realUIIdiom != UIUserInterfaceIdiomTV) {
