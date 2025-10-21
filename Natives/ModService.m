@@ -23,84 +23,93 @@
 
 @implementation ModService
 
-// Parses the first [[mods]] table from a mods.toml string.
-- (NSDictionary<NSString *, NSString *> *)parseFirstModsTableFromTomlString:(NSString *)s {
-    if (!s) return nil;
+- (nullable id)parseTomlValue:(NSString *)valPart inLines:(NSArray<NSString *> *)lines atIndex:(NSUInteger *)i {
+    NSString *trimmedVal = [valPart stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
 
-    NSMutableDictionary *dict = [NSMutableDictionary dictionary];
-    BOOL inModTable = NO;
+    // Check for multiline strings
+    NSString *delimiter = nil;
+    if ([trimmedVal hasPrefix:@"'''"]) delimiter = @"'''";
+    else if ([trimmedVal hasPrefix:@"\"\"\""]) delimiter = @"\"\"\"";
 
-    NSArray<NSString *> *lines = [s componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
-    NSUInteger lineCount = lines.count;
-    for (NSUInteger i = 0; i < lineCount; i++) {
-        NSString *line = lines[i];
-        NSString *trimmed = [line stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-
-        if ([trimmed isEqualToString:@"[[mods]]"]) {
-            inModTable = YES;
-            continue;
-        }
-
-        if (inModTable && [trimmed hasPrefix:@"["]) {
-            // Reached the next table, so stop.
-            break;
-        }
-
-        if (inModTable) {
-            NSRange eqRange = [trimmed rangeOfString:@"="];
-            if (eqRange.location != NSNotFound) {
-                NSString *key = [[trimmed substringToIndex:eqRange.location] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-                NSString *valPart = [[trimmed substringFromIndex:NSMaxRange(eqRange)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-                NSString *val;
-
-                // Check for multiline strings, both ''' and """
-                NSString *delimiter = nil;
-                if ([valPart hasPrefix:@"'''"]) delimiter = @"'''";
-                else if ([valPart hasPrefix:@"\"\"\""]) delimiter = @"\"\"\"";
-
-                if (delimiter) {
-                    NSMutableString *firstLineContent = [[valPart substringFromIndex:3] mutableCopy];
-
-                    // Check if the multiline string ends on the same line
-                    if ([firstLineContent hasSuffix:delimiter]) {
-                        val = [firstLineContent substringToIndex:firstLineContent.length - 3];
-                    } else {
-                        // It spans multiple lines, so we read subsequent lines
-                        NSMutableArray<NSString *> *contentLines = [NSMutableArray array];
-                        [contentLines addObject:firstLineContent]; // Add the first part
-
-                        i++; // Move to the next line to start reading
-                        while (i < lineCount) {
-                            NSString *nextLine = lines[i];
-                            NSRange endDelimiterRange = [nextLine rangeOfString:delimiter];
-                            if (endDelimiterRange.location != NSNotFound) {
-                                // Found the closing delimiter
-                                [contentLines addObject:[nextLine substringToIndex:endDelimiterRange.location]];
-                                break;
-                            } else {
-                                [contentLines addObject:nextLine];
-                            }
-                            i++;
-                        }
-                        val = [contentLines componentsJoinedByString:@"\n"];
-                    }
+    if (delimiter) {
+        NSMutableString *multiLineContent = [[trimmedVal substringFromIndex:3] mutableCopy];
+        if ([multiLineContent hasSuffix:delimiter]) {
+            return [multiLineContent substringToIndex:multiLineContent.length - 3];
+        } else {
+            NSMutableArray<NSString *> *contentLines = [NSMutableArray array];
+            [contentLines addObject:multiLineContent];
+            (*i)++;
+            while (*i < lines.count) {
+                NSString *nextLine = lines[*i];
+                NSRange endDelimiterRange = [nextLine rangeOfString:delimiter];
+                if (endDelimiterRange.location != NSNotFound) {
+                    [contentLines addObject:[nextLine substringToIndex:endDelimiterRange.location]];
+                    break;
                 } else {
-                    val = valPart;
-                    // For single-line strings, remove surrounding quotes (" or ')
-                    if (([val hasPrefix:@"\""] && [val hasSuffix:@"\""]) || ([val hasPrefix:@"'"] && [val hasSuffix:@"'"])) {
-                        if (val.length > 1) {
-                            val = [val substringWithRange:NSMakeRange(1, val.length - 2)];
-                        } else {
-                            val = @""; // Empty quoted string
-                        }
-                    }
+                    [contentLines addObject:nextLine];
                 }
-                dict[key] = val;
+                (*i)++;
             }
+            return [contentLines componentsJoinedByString:@"\n"];
         }
     }
 
-    return (dict.count > 0) ? [dict copy] : nil;
+    // For single-line strings, remove surrounding quotes
+    if (([trimmedVal hasPrefix:@"\""] && [trimmedVal hasSuffix:@"\""]) || ([trimmedVal hasPrefix:@"'"] && [trimmedVal hasSuffix:@"'"])) {
+        if (trimmedVal.length > 1) {
+            return [trimmedVal substringWithRange:NSMakeRange(1, trimmedVal.length - 2)];
+        }
+        return @"";
+    }
+
+    // Handle other types if necessary (booleans, numbers, arrays etc.)
+    // For now, we assume everything else is a simple string.
+    return trimmedVal;
+}
+
+- (NSDictionary<NSString *, id> *)parseTomlString:(NSString *)s {
+    if (!s) return nil;
+
+    NSMutableDictionary<NSString *, id> *root = [NSMutableDictionary dictionary];
+    NSMutableDictionary *currentTable = root;
+    NSString *currentTableName = nil;
+
+    NSArray<NSString *> *lines = [s componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
+    for (NSUInteger i = 0; i < lines.count; i++) {
+        NSString *line = lines[i];
+        NSString *trimmed = [line stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+
+        if ([trimmed hasPrefix:@"#"] || trimmed.length == 0) continue; // Skip comments and empty lines
+
+        // Check for table headers
+        if ([trimmed hasPrefix:@"[["] && [trimmed hasSuffix:@"]]"]) { // Array of Tables
+            currentTableName = [trimmed substringWithRange:NSMakeRange(2, trimmed.length - 4)];
+            NSMutableArray *array = root[currentTableName] ?: [NSMutableArray array];
+            root[currentTableName] = array;
+
+            currentTable = [NSMutableDictionary dictionary];
+            [array addObject:currentTable];
+            continue;
+        } else if ([trimmed hasPrefix:@"["] && [trimmed hasSuffix:@"]"]) { // Table
+            currentTableName = [trimmed substringWithRange:NSMakeRange(1, trimmed.length - 2)];
+            currentTable = [NSMutableDictionary dictionary];
+            root[currentTableName] = currentTable;
+            continue;
+        }
+
+        // Parse key-value pairs
+        NSRange eqRange = [trimmed rangeOfString:@"="];
+        if (eqRange.location != NSNotFound) {
+            NSString *key = [[trimmed substringToIndex:eqRange.location] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+            NSString *valPart = [trimmed substringFromIndex:NSMaxRange(eqRange)];
+
+            id value = [self parseTomlValue:valPart inLines:lines atIndex:&i];
+            if (value) {
+                currentTable[key] = value;
+            }
+        }
+    }
+    return root;
 }
 
 
@@ -244,84 +253,94 @@
 #pragma mark - Metadata fetch
 - (void)fetchMetadataForMod:(ModItem *)mod completion:(ModMetadataHandler)completion {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        // --- Fabric ---
-        NSData *fabricData = [self readFileFromJar:mod.filePath entryName:@"fabric.mod.json"];
-        if (fabricData) {
-            mod.isFabric = YES;
-            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:fabricData options:0 error:nil];
-            if ([json isKindOfClass:[NSDictionary class]]) {
-                mod.onlineID = json[@"id"];
-                mod.version = json[@"version"];
-                mod.displayName = json[@"name"];
-                mod.modDescription = json[@"description"];
-                mod.author = [json[@"authors"] componentsJoinedByString:@", "];
-                // Icon parsing (optional)
-                NSString *iconPath = json[@"icon"];
-                if ([iconPath isKindOfClass:[NSString class]]) {
-                    NSData *iconData = [self readFileFromJar:mod.filePath entryName:iconPath];
-                    if (iconData) {
-                        mod.icon = [[UIImage alloc] initWithData:iconData];
-                    }
-                }
-                if (completion) completion(mod, nil);
-                return;
-            }
-        }
+        @try {
+            // --- Priority 1: Fabric ---
+            NSData *fabricData = [self readFileFromJar:mod.filePath entryName:@"fabric.mod.json"];
+            if (fabricData) {
+                NSDictionary *json = [NSJSONSerialization JSONObjectWithData:fabricData options:0 error:nil];
+                if ([json isKindOfClass:[NSDictionary class]]) {
+                    mod.isFabric = YES;
+                    mod.onlineID = json[@"id"];
+                    mod.version = json[@"version"];
+                    mod.displayName = json[@"name"];
+                    mod.modDescription = json[@"description"];
+                    mod.author = [json[@"authors"] componentsJoinedByString:@", "];
 
-        // --- Forge ---
-        NSData *forgeData = [self readFileFromJar:mod.filePath entryName:@"META-INF/mods.toml"];
-        if (forgeData) {
-            mod.isForge = YES;
-            NSString *tomlString = [[NSString alloc] initWithData:forgeData encoding:NSUTF8StringEncoding];
-            if (tomlString) {
-                NSDictionary<NSString *, NSString *> *modInfo = [self parseFirstModsTableFromTomlString:tomlString];
-                if (modInfo) {
-                    mod.onlineID = modInfo[@"modId"];
-                    mod.version = modInfo[@"version"];
-                    mod.displayName = modInfo[@"displayName"];
-                    mod.modDescription = modInfo[@"description"];
-                    mod.author = modInfo[@"authors"];
-                    // Forge icon parsing is more complex, often a logo file defined in the TOML
-                    NSString *logoFile = modInfo[@"logoFile"];
-                    if (logoFile.length > 0) {
-                        NSData *logoData = [self readFileFromJar:mod.filePath entryName:logoFile];
-                        if (logoData) {
-                             mod.icon = [[UIImage alloc] initWithData:logoData];
-                        }
+                    // Extract game version
+                    NSDictionary *deps = json[@"depends"];
+                    if ([deps isKindOfClass:[NSDictionary class]] && [deps[@"minecraft"] isKindOfClass:[NSString class]]) {
+                        mod.gameVersion = deps[@"minecraft"];
+                    }
+
+                    NSString *iconPath = json[@"icon"];
+                    if ([iconPath isKindOfClass:[NSString class]]) {
+                        NSData *iconData = [self readFileFromJar:mod.filePath entryName:iconPath];
+                        if (iconData) mod.icon = [[UIImage alloc] initWithData:iconData];
                     }
                     if (completion) completion(mod, nil);
                     return;
                 }
             }
-        }
 
-        // --- NeoForge ---
-        NSData *neoForgeData = [self readFileFromJar:mod.filePath entryName:@"META-INF/neoforge.mods.toml"];
-        if (neoForgeData) {
-            mod.isNeoForge = YES;
-            NSString *tomlString = [[NSString alloc] initWithData:neoForgeData encoding:NSUTF8StringEncoding];
-            if (tomlString) {
-                NSDictionary<NSString *, NSString *> *modInfo = [self parseFirstModsTableFromTomlString:tomlString];
-                if (modInfo) {
-                    mod.onlineID = modInfo[@"modId"];
-                    mod.version = modInfo[@"version"];
-                    mod.displayName = modInfo[@"displayName"];
-                    mod.modDescription = modInfo[@"description"];
-                    mod.author = modInfo[@"authors"];
-                    NSString *logoFile = modInfo[@"logoFile"];
-                     if (logoFile.length > 0) {
-                        NSData *logoData = [self readFileFromJar:mod.filePath entryName:logoFile];
-                        if (logoData) {
-                             mod.icon = [[UIImage alloc] initWithData:logoData];
+            // --- Priority 2: Forge / NeoForge ---
+            NSData *tomlData = [self readFileFromJar:mod.filePath entryName:@"META-INF/mods.toml"];
+            if (tomlData) {
+                mod.isForge = YES;
+            } else {
+                tomlData = [self readFileFromJar:mod.filePath entryName:@"META-INF/neoforge.mods.toml"];
+                if (tomlData) mod.isNeoForge = YES;
+            }
+
+            if (tomlData) {
+                NSString *tomlString = [[NSString alloc] initWithData:tomlData encoding:NSUTF8StringEncoding];
+                NSDictionary<NSString *, id> *toml = [self parseTomlString:tomlString];
+
+                // Find first item in [[mods]] array
+                NSArray *mods = toml[@"mods"];
+                if ([mods isKindOfClass:[NSArray class]] && mods.count > 0) {
+                    NSDictionary *modInfo = mods.firstObject;
+                    if ([modInfo isKindOfClass:[NSDictionary class]]) {
+                        mod.onlineID = modInfo[@"modId"];
+                        mod.version = modInfo[@"version"];
+                        mod.displayName = modInfo[@"displayName"];
+                        mod.modDescription = modInfo[@"description"];
+                        mod.author = modInfo[@"authors"];
+
+                        // Find Minecraft dependency
+                        // The key for dependencies can be complex, e.g., [[dependencies.modid]]
+                        // Or a single [[dependencies]] table. We will check for 'dependencies' key first.
+                        NSArray *deps = nil;
+                        for (NSString *key in toml) {
+                            if ([key hasPrefix:@"dependencies"]) {
+                                deps = toml[key];
+                                break;
+                            }
                         }
+
+                        if ([deps isKindOfClass:[NSArray class]]) {
+                            for (NSDictionary *depInfo in deps) {
+                                if ([depInfo isKindOfClass:[NSDictionary class]] && [depInfo[@"modId"] isEqualToString:@"minecraft"]) {
+                                    mod.gameVersion = depInfo[@"versionRange"];
+                                    break;
+                                }
+                            }
+                        }
+
+                        NSString *logoFile = modInfo[@"logoFile"];
+                        if (logoFile.length > 0) {
+                            NSData *logoData = [self readFileFromJar:mod.filePath entryName:logoFile];
+                            if (logoData) mod.icon = [[UIImage alloc] initWithData:logoData];
+                        }
+                        if (completion) completion(mod, nil);
+                        return;
                     }
-                    if (completion) completion(mod, nil);
-                    return;
                 }
             }
+        } @catch (NSException *exception) {
+            NSLog(@"[ModService] CRITICAL: Exception while parsing mod metadata for %@: %@", mod.fileName, exception);
         }
 
-        // --- Fallback ---
+        // --- Fallback: No metadata found or error occurred ---
         if (completion) completion(mod, nil);
     });
 }

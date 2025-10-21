@@ -21,6 +21,8 @@ typedef NS_ENUM(NSInteger, ModTableViewCellDisplayMode) {
 // --- UI Elements ---
 @property (nonatomic, strong) UIImageView *modIconView;
 @property (nonatomic, strong) UILabel *nameLabel;
+@property (nonatomic, strong) UILabel *modVersionLabel;
+@property (nonatomic, strong) UILabel *gameVersionLabel;
 @property (nonatomic, strong) UILabel *authorLabel; // For online author
 @property (nonatomic, strong) UILabel *descLabel;
 @property (nonatomic, strong) UILabel *statsLabel; // For downloads, likes, etc.

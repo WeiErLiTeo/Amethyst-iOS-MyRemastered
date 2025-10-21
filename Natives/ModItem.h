@@ -27,6 +27,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong, nullable) UIImage *icon;
 @property (nonatomic, copy, nullable) NSString *fileSHA1;
 @property (nonatomic, copy, nullable) NSString *version;
+@property (nonatomic, copy, nullable) NSString *gameVersion;
 @property (nonatomic, copy, nullable) NSString *homepage;
 @property (nonatomic, copy, nullable) NSString *sources;
 @property (nonatomic, assign) BOOL isFabric;
