@@ -11,7 +11,7 @@
 #import "ModService.h"
 #import "ModTableViewCell.h"
 
-@interface ModTableViewController () <ModTableViewCellDelegate>
+@interface ModTableViewController () <ModTableViewCellDelegate, UISearchBarDelegate>
 @property (nonatomic, strong) NSArray<ModItem *> *mods;
 @property (nonatomic, strong) NSArray<ModItem *> *filteredMods; // 用于存储搜索结果
 @property (nonatomic, strong) UISwitch *onlineSearchSwitch;
@@ -149,8 +149,6 @@
     ModItem *m = self.filteredMods[indexPath.row];
     cell.delegate = self;
     [cell configureWithMod:m displayMode:ModTableViewCellDisplayModeLocal];
-    // Reset batch mode state since this controller doesn't use batch mode
-    [cell updateBatchSelectionState:NO batchMode:NO];
     return cell;
 }
 

@@ -1,7 +1,6 @@
 #import "ModTableViewCell.h"
 #import "ModItem.h"
 #import "ModService.h"
-#import "MarqueeLabel.h"
 #import <QuartzCore/QuartzCore.h>
 
 #pragma clang diagnostic push
@@ -24,25 +23,11 @@
         // --- Initialization of UI Elements ---
         _modIconView = [self createImageViewWithCornerRadius:4];
 
-        // Replace UILabels with MarqueeLabels for scrolling long text
-        _nameLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
-        _nameLabel.rate = 60.0;
-        _nameLabel.fadeLength = 10.0;
-        _nameLabel.marqueeType = MLContinuous;
-        _nameLabel.font = [UIFont boldSystemFontOfSize:13];
-        _nameLabel.textColor = [UIColor labelColor];
-        _nameLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        _nameLabel = [self createLabelWithFont:[UIFont boldSystemFontOfSize:13] textColor:[UIColor labelColor] numberOfLines:1];
 
         _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:9] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
 
-        _descLabel = [[MarqueeLabel alloc] initWithFrame:CGRectZero];
-        _descLabel.rate = 50.0;
-        _descLabel.fadeLength = 10.0;
-        _descLabel.marqueeType = MLContinuous;
-        _descLabel.numberOfLines = 1;
-        _descLabel.font = [UIFont systemFontOfSize:9];
-        _descLabel.textColor = [UIColor grayColor];
-        _descLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        _descLabel = [self createLabelWithFont:[UIFont systemFontOfSize:9] textColor:[UIColor grayColor] numberOfLines:1];
 
         _statsLabel = [self createLabelWithFont:[UIFont systemFontOfSize:9] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
         _categoryLabel = [self createLabelWithFont:[UIFont systemFontOfSize:9] textColor:[UIColor systemBlueColor] numberOfLines:1];
@@ -212,6 +197,7 @@
     _downloadButton.hidden = YES;
 
     // Show local elements
+    _descLabel.hidden = NO;
     _openLinkButton.hidden = NO; // Globe icon should be visible for local mods too
     _enableSwitch.hidden = NO;
     _loaderBadgesStackView.hidden = NO;
@@ -240,6 +226,7 @@
     // Hide local elements
     _enableSwitch.hidden = YES;
     _loaderBadgesStackView.hidden = YES; // Badges aren't shown in online mode for now
+    _descLabel.hidden = YES; // Hide description to prevent overlap
 
     // Show online elements
     _authorLabel.hidden = NO;
@@ -262,15 +249,6 @@
 - (void)updateToggleState:(BOOL)disabled {
     [_enableSwitch setOn:!disabled animated:YES];
     self.contentView.alpha = disabled ? 0.6 : 1.0;
-}
-
-- (void)updateBatchSelectionState:(BOOL)isSelected batchMode:(BOOL)batchMode {
-    self.isBatchMode = batchMode;
-    if (batchMode && isSelected) {
-        self.backgroundColor = [UIColor colorWithRed:0.0 green:1.0 blue:0.0 alpha:0.3];
-    } else {
-        self.backgroundColor = [UIColor systemBackgroundColor];
-    }
 }
 
 #pragma mark - Actions

@@ -31,8 +31,9 @@
     BOOL inModTable = NO;
 
     NSArray<NSString *> *lines = [s componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
-
-    for (NSString *line in lines) {
+    NSUInteger lineCount = lines.count;
+    for (NSUInteger i = 0; i < lineCount; i++) {
+        NSString *line = lines[i];
         NSString *trimmed = [line stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
 
         if ([trimmed isEqualToString:@"[[mods]]"]) {
@@ -49,11 +50,50 @@
             NSRange eqRange = [trimmed rangeOfString:@"="];
             if (eqRange.location != NSNotFound) {
                 NSString *key = [[trimmed substringToIndex:eqRange.location] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-                NSString *val = [[trimmed substringFromIndex:NSMaxRange(eqRange)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+                NSString *valPart = [[trimmed substringFromIndex:NSMaxRange(eqRange)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+                NSString *val;
 
-                // Remove quotes
-                if ([val hasPrefix:@"\""] && [val hasSuffix:@"\""] && val.length > 1) {
-                    val = [val substringWithRange:NSMakeRange(1, val.length - 2)];
+                // Check for multiline strings, both ''' and """
+                NSString *delimiter = nil;
+                if ([valPart hasPrefix:@"'''"]) delimiter = @"'''";
+                else if ([valPart hasPrefix:@"\"\"\""]) delimiter = @"\"\"\"";
+
+                if (delimiter) {
+                    NSMutableString *firstLineContent = [[valPart substringFromIndex:3] mutableCopy];
+
+                    // Check if the multiline string ends on the same line
+                    if ([firstLineContent hasSuffix:delimiter]) {
+                        val = [firstLineContent substringToIndex:firstLineContent.length - 3];
+                    } else {
+                        // It spans multiple lines, so we read subsequent lines
+                        NSMutableArray<NSString *> *contentLines = [NSMutableArray array];
+                        [contentLines addObject:firstLineContent]; // Add the first part
+
+                        i++; // Move to the next line to start reading
+                        while (i < lineCount) {
+                            NSString *nextLine = lines[i];
+                            NSRange endDelimiterRange = [nextLine rangeOfString:delimiter];
+                            if (endDelimiterRange.location != NSNotFound) {
+                                // Found the closing delimiter
+                                [contentLines addObject:[nextLine substringToIndex:endDelimiterRange.location]];
+                                break;
+                            } else {
+                                [contentLines addObject:nextLine];
+                            }
+                            i++;
+                        }
+                        val = [contentLines componentsJoinedByString:@"\n"];
+                    }
+                } else {
+                    val = valPart;
+                    // For single-line strings, remove surrounding quotes (" or ')
+                    if (([val hasPrefix:@"\""] && [val hasSuffix:@"\""]) || ([val hasPrefix:@"'"] && [val hasSuffix:@"'"])) {
+                        if (val.length > 1) {
+                            val = [val substringWithRange:NSMakeRange(1, val.length - 2)];
+                        } else {
+                            val = @""; // Empty quoted string
+                        }
+                    }
                 }
                 dict[key] = val;
             }
