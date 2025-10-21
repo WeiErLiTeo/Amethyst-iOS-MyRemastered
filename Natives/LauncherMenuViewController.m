@@ -130,7 +130,8 @@
     
     [self updateAccountInfo];
     
-    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:0 inSection:0];
+    self.lastSelectedIndex = 1; // Set "Profiles" as the default selection
+    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.lastSelectedIndex inSection:0];
     [self.tableView selectRowAtIndexPath:indexPath animated:YES scrollPosition:UITableViewScrollPositionNone];
     [self tableView:self.tableView didSelectRowAtIndexPath:indexPath];
     

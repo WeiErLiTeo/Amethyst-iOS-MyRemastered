@@ -16,6 +16,10 @@ extern UIWindow *mainWindow;
     self.window = [[UIWindow alloc] initWithWindowScene:windowScene];
     self.window.frame = windowScene.coordinateSpace.bounds;
     mainWindow = self.window;
+    // [BugFix] Forcefully reset the 'game running' flag on every cold start.
+    // This prevents a deadlock in the mod manager if the app was force-quit
+    // during a previous game session.
+    setPrefBool(@"internal.internal_launch_on_boot", NO);
     launchInitialViewController(self.window);
     [self.window makeKeyAndVisible];
 }
