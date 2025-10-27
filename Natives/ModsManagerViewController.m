@@ -54,7 +54,7 @@
     self.tableView.tableFooterView = [UIView new];
     [self.view addSubview:self.tableView];
     UIRefreshControl *rc = [UIRefreshControl new];
-    [rc addTarget:self action:@selector(refreshLocalModsList) forControlEvents:UIControlEventValueChanged];
+    [rc addTarget:self action:@selector(handleRefresh:) forControlEvents:UIControlEventValueChanged];
     self.tableView.refreshControl = rc;
     self.activityIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
     self.activityIndicator.translatesAutoresizingMaskIntoConstraints = NO;
@@ -66,7 +66,7 @@
     self.emptyLabel.textColor = [UIColor secondaryLabelColor];
     self.emptyLabel.hidden = YES;
     [self.view addSubview:self.emptyLabel];
-    self.refreshButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshLocalModsList)];
+    self.refreshButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(handleRefresh:)];
     [self updateNavigationButtons];
     [NSLayoutConstraint activateConstraints:@[
         [self.modeSwitcher.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8],
@@ -99,15 +99,15 @@
 - (void)updateUIForCurrentMode {
     if (self.currentMode == ModsManagerModeLocal) {
         self.searchBar.placeholder = @"搜索本地 Mod...";
-        self.tableView.refreshControl.enabled = YES;
         self.emptyLabel.text = @"未发现 Mod";
         self.emptyLabel.hidden = self.localMods.count > 0;
     } else {
         self.searchBar.placeholder = @"在线搜索 Modrinth...";
-        self.tableView.refreshControl.enabled = NO; // Disable pull-to-refresh for online mode
         self.emptyLabel.text = @"输入关键词进行在线搜索";
         self.emptyLabel.hidden = self.onlineSearchResults.count > 0;
     }
+    // Re-enable pull-to-refresh for all modes
+    self.tableView.refreshControl.enabled = YES;
     [self updateNavigationButtons];
     [self.tableView reloadData];
 }
@@ -121,6 +121,20 @@
 }
 
 #pragma mark - Data Loading
+
+- (void)handleRefresh:(id)sender {
+    if (self.currentMode == ModsManagerModeLocal) {
+        [self refreshLocalModsList];
+    } else {
+        // For online mode, only refresh if there's text, otherwise it's pointless.
+        if (self.searchBar.text.length > 0) {
+            [self performOnlineSearch];
+        } else {
+            // If no text, just end the refreshing indicator.
+            [self.tableView.refreshControl endRefreshing];
+        }
+    }
+}
 
 - (void)setLoading:(BOOL)loading {
     dispatch_async(dispatch_get_main_queue(), ^{

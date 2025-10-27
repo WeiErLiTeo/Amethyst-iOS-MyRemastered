@@ -22,13 +22,14 @@
 
         // --- Initialization of UI Elements ---
         _modIconView = [self createImageViewWithCornerRadius:4];
-
         _nameLabel = [self createLabelWithFont:[UIFont boldSystemFontOfSize:13] textColor:[UIColor labelColor] numberOfLines:1];
 
+        // --- NEW: Version Labels ---
+        _modVersionLabel = [self createLabelWithFont:[UIFont systemFontOfSize:10 weight:UIFontWeightMedium] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
+        _gameVersionLabel = [self createLabelWithFont:[UIFont systemFontOfSize:10 weight:UIFontWeightMedium] textColor:[UIColor systemGreenColor] numberOfLines:1];
+
         _authorLabel = [self createLabelWithFont:[UIFont systemFontOfSize:9] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
-
         _descLabel = [self createLabelWithFont:[UIFont systemFontOfSize:9] textColor:[UIColor grayColor] numberOfLines:1];
-
         _statsLabel = [self createLabelWithFont:[UIFont systemFontOfSize:9] textColor:[UIColor secondaryLabelColor] numberOfLines:1];
         _categoryLabel = [self createLabelWithFont:[UIFont systemFontOfSize:9] textColor:[UIColor systemBlueColor] numberOfLines:1];
 
@@ -55,6 +56,8 @@
         [self.contentView addSubview:_loaderBadgesStackView];
         [self.contentView addSubview:_modIconView];
         [self.contentView addSubview:_nameLabel];
+        [self.contentView addSubview:_modVersionLabel];
+        [self.contentView addSubview:_gameVersionLabel];
         [self.contentView addSubview:_authorLabel];
         [self.contentView addSubview:_descLabel];
         [self.contentView addSubview:_statsLabel];
@@ -132,7 +135,14 @@
         [_modIconView.heightAnchor constraintEqualToConstant:iconSize],
 
         [_nameLabel.leadingAnchor constraintEqualToAnchor:_modIconView.trailingAnchor constant:8],
-        [_nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor],
+        [_nameLabel.topAnchor constraintEqualToAnchor:_modIconView.topAnchor constant:-2], // Shift up slightly
+
+        // --- NEW: Version Label Constraints ---
+        [_modVersionLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
+        [_modVersionLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:2],
+        [_gameVersionLabel.leadingAnchor constraintEqualToAnchor:_modVersionLabel.trailingAnchor constant:5],
+        [_gameVersionLabel.centerYAnchor constraintEqualToAnchor:_modVersionLabel.centerYAnchor],
+
 
         [_descLabel.leadingAnchor constraintEqualToAnchor:_nameLabel.leadingAnchor],
         [_descLabel.topAnchor constraintEqualToAnchor:_nameLabel.bottomAnchor constant:1],
@@ -155,6 +165,7 @@
 
         // --- Text Content Trailing Constraints ---
         [_nameLabel.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
+        [_modVersionLabel.trailingAnchor constraintLessThanOrEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
         [_descLabel.trailingAnchor constraintEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
         [_statsLabel.trailingAnchor constraintLessThanOrEqualToAnchor:_openLinkButton.leadingAnchor constant:-padding],
 
@@ -172,7 +183,6 @@
     self.currentMod = mod;
 
     _nameLabel.text = mod.displayName ?: mod.fileName;
-    _descLabel.text = mod.modDescription;
 
     if (mod.icon) {
         _modIconView.image = mod.icon;
@@ -190,17 +200,36 @@
 }
 
 - (void)configureForLocalMode:(ModItem *)mod {
-    // Hide online elements
+    // Hide online/unused elements
     _authorLabel.hidden = YES;
     _statsLabel.hidden = YES;
     _categoryLabel.hidden = YES;
     _downloadButton.hidden = YES;
+    _descLabel.hidden = YES; // Replaced by version labels
 
     // Show local elements
-    _descLabel.hidden = NO;
-    _openLinkButton.hidden = NO; // Globe icon should be visible for local mods too
+    _openLinkButton.hidden = NO;
     _enableSwitch.hidden = NO;
     _loaderBadgesStackView.hidden = NO;
+    _modVersionLabel.hidden = NO;
+    _gameVersionLabel.hidden = NO;
+
+    // Populate version labels
+    if (mod.version && mod.version.length > 0) {
+        _modVersionLabel.text = [NSString stringWithFormat:@"v%@", mod.version];
+        _modVersionLabel.hidden = NO;
+    } else {
+        _modVersionLabel.text = nil;
+        _modVersionLabel.hidden = YES;
+    }
+
+    if (mod.gameVersion && mod.gameVersion.length > 0) {
+        _gameVersionLabel.text = [NSString stringWithFormat:@"MC %@", mod.gameVersion];
+        _gameVersionLabel.hidden = NO;
+    } else {
+        _gameVersionLabel.text = nil;
+        _gameVersionLabel.hidden = YES;
+    }
 
     // Clear previous badges
     for (UIView *view in self.loaderBadgesStackView.arrangedSubviews) {
@@ -208,25 +237,21 @@
         [view removeFromSuperview];
     }
 
-    // Add new badges based on mod properties
-    if (mod.isFabric) {
-        [self.loaderBadgesStackView addArrangedSubview:[self createBadgeImageView:@"fabric_logo"]];
-    }
-    if (mod.isForge) {
-        [self.loaderBadgesStackView addArrangedSubview:[self createBadgeImageView:@"forge_logo"]];
-    }
-    if (mod.isNeoForge) {
-        [self.loaderBadgesStackView addArrangedSubview:[self createBadgeImageView:@"neoforge_logo"]];
-    }
+    // Add new badges
+    if (mod.isFabric) [self.loaderBadgesStackView addArrangedSubview:[self createBadgeImageView:@"fabric_logo"]];
+    if (mod.isForge) [self.loaderBadgesStackView addArrangedSubview:[self createBadgeImageView:@"forge_logo"]];
+    if (mod.isNeoForge) [self.loaderBadgesStackView addArrangedSubview:[self createBadgeImageView:@"neoforge_logo"]];
 
     [self updateToggleState:mod.disabled];
 }
 
 - (void)configureForOnlineMode:(ModItem *)mod {
-    // Hide local elements
+    // Hide local/unused elements
     _enableSwitch.hidden = YES;
-    _loaderBadgesStackView.hidden = YES; // Badges aren't shown in online mode for now
-    _descLabel.hidden = YES; // Hide description to prevent overlap
+    _loaderBadgesStackView.hidden = YES;
+    _descLabel.hidden = YES;
+    _modVersionLabel.hidden = YES;
+    _gameVersionLabel.hidden = YES;
 
     // Show online elements
     _authorLabel.hidden = NO;
